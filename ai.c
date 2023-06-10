@@ -127,7 +127,7 @@ void board_group_propagate(BOARD* board, INT_VEC *liberties, int x, int y, CELL_
 
 int board_refresh(BOARD *board, int place_x, int place_y, CELL_COLOR color) {
     int x, y, n = 0, group = 1, suicide = 0, maybe_suicide = 0, place = place_y * board->size + place_x;
-    int to_remove[board->square], to_remove_n = 0;
+    int to_remove[board->square], to_remove_n = 0, self_remove = 0;
     CELL *cell;
     INT_VEC *liberties;
     // clean-up old state if there was any
@@ -160,8 +160,10 @@ int board_refresh(BOARD *board, int place_x, int place_y, CELL_COLOR color) {
     for(n = 0; n < board->square; n++) {
         cell = &board->cells[n];
         if(cell->liberties) {
-            if(cell->liberties->size == 0)
-                to_remove[to_remove_n++] = n;
+            if(cell->liberties->size == 0) {
+                if(cell->color == color) self_remove++;
+                else to_remove[to_remove_n++] = n;
+            }
             int_vec_dec_ref(cell->liberties);
             if(cell->liberties->refs == 0) {
                 allocate(cell->liberties, 0);
@@ -171,23 +173,17 @@ int board_refresh(BOARD *board, int place_x, int place_y, CELL_COLOR color) {
     }
 
     // check for suicide. ko and other states that can happen
-    if(to_remove_n == 1 && to_remove[0] == place) {
-        board->cells[to_remove[0]].color = EMPTY;
+    if(to_remove_n == 0 && self_remove > 0) {
+        board->cells[place].color = EMPTY;
         return ERR_SUICIDE;
     } else if(to_remove_n == 1) {
         board->ko = to_remove[0];
-    } else if(to_remove_n == 2) {
-        if(to_remove[0] == place)
-            board->ko = to_remove[1];
-        else board->ko = to_remove[0];
     } else {
         board->ko = -1;
     }
     for(n = 0; n < to_remove_n; n++) {
         board->cells[to_remove[n]].color = EMPTY;
     }
-    // make sure if we removed stones by putting it inside eye, we color the inside back
-    board->cells[(place_y * board->size + place_x)].color = color;
     return NO_ERR;
 }
 
@@ -239,7 +235,8 @@ int on_unload(void *ctx, void *params, int reload) {
 #ifndef SMOD_SO
 
 // Ko: 2 2 3 2 1 3 4 3 3 3 3 4 2 4 2 3 3 3
-// Suicide: 2 2 5 5 1 3 5 6 3 3 5 7 2 4
+// Suicide 1: 2 2 5 5 1 3 5 6 3 3 5 7 2 4
+// Suicide 2: 1 3 1 9 2 2 2 9 3 2 3 9 2 4 4 9 3 4 3 3 4 3 3 3
 
 int main() {
     int x, y, n = 0;
