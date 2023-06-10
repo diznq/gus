@@ -13,7 +13,8 @@ typedef enum go_err {
     ERR_PLACED = -1,
     ERR_OOB = -2,
     ERR_SUICIDE = -3,
-    ERR_KO = -4
+    ERR_KO = -4,
+    ERR_PASS = -5
 } GO_ERR;
 
 typedef enum cell_color {
@@ -34,6 +35,8 @@ typedef struct board {
     int square;
     int turn;
     int ko;
+    int white_score;
+    int black_score;
     int white_liberties;
     int black_liberties;
     int white;
@@ -49,7 +52,7 @@ typedef struct int_vec {
 } INT_VEC;
 
 void *allocate(void *mem, size_t size);
-void board_init(BOARD *board, int size);
+void board_init(BOARD *board, int size, int komi);
 void board_release(BOARD *board);
 int  board_place(BOARD *board, int x, int y, CELL_COLOR color);
 int  board_predict(BOARD* board, CELL_COLOR color, int *best_x, int *best_y);

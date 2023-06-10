@@ -37,11 +37,13 @@ static void int_vec_dec_ref(INT_VEC *vec) {
     }
 }
 
-void board_init(BOARD* board, int size) {
+void board_init(BOARD* board, int size, int komi) {
     int n, sq;
     board->size = size;
     board->square = size * size;
     board->ko = -1;
+    board->white_score = komi;
+    board->black_score = 0;
     board->turn = BLACK;
     board->cells = (CELL*)allocate(NULL, board->square * sizeof(CELL));
     for(n = 0; n < board->square; n++) {
@@ -65,6 +67,8 @@ static void board_copy(BOARD* out, BOARD* board) {
     if(!out->cells) {
         out->cells = (CELL*)allocate(NULL, sizeof(CELL) * board->square);
     }
+    out->white_score = board->white_score;
+    out->black_score = board->black_score;
     out->black_liberties = board->black_liberties;
     out->white_liberties = board->white_liberties;
     out->ko = board->ko;
@@ -177,8 +181,13 @@ static int board_refresh(BOARD *board, int place_x, int place_y, CELL_COLOR colo
         }
         for(n = 0; n < to_remove_n; n++) {
             cell = &board->cells[to_remove[n]];
-            board->white -= cell->color == WHITE;
-            board->black -= cell->color == BLACK;
+            if(cell->color == WHITE) {
+                board->white--;
+                board->black_score += 10;
+            } else if(cell->color == BLACK) {
+                board->black--;
+                board->white_score += 10;
+            }
             cell->color = EMPTY;
         }
 
@@ -197,10 +206,27 @@ int board_place(BOARD* board, int x, int y, CELL_COLOR color) {
     return board_refresh(board, x, y, color, 1);
 }
 
+static double uniform(double w) {
+    return w * (double)rand() / RAND_MAX;
+}
+
+static double make_rating(BOARD *clone, CELL_COLOR color) {
+    double my_lib, my_area, my_score, op_lib, op_area, op_score, rating;
+    my_lib = color == BLACK ? clone->black_liberties : clone->white_liberties;
+    my_area = color == BLACK ? clone->black : clone->white;
+    my_score = color == BLACK ? clone->black_score : clone->white_score;
+
+    op_lib = color != BLACK ? clone->black_liberties : clone->white_liberties;
+    op_area = color != BLACK ? clone->black : clone->white;
+    op_score = color != BLACK ? clone->black_score : clone->white_score;
+    
+    rating = (my_score - op_score) * 10 - op_lib * (1.2 + uniform(0.4)) + my_lib * uniform(0.1) + (op_area - my_area) * 0.5;
+    return rating;
+}
+
 int board_predict(BOARD* board, CELL_COLOR color, int *best_x, int *best_y) {
-    int best_move_found = 0, best_n = 0, n = 0, y, x, ok, my_liberties, op_liberties;
-    double best_move, rating;
-    int strategy = rand() % 22;
+    int best_move_found = 1, pass = 1, best_n = 0, n = 0, y, x, ok, my_liberties, op_liberties;
+    double best_move = make_rating(board, color), rating;
     BOARD clone;
     clone.cells = NULL;
     for(y = 0; y < board->size; y++) {
@@ -209,27 +235,28 @@ int board_predict(BOARD* board, CELL_COLOR color, int *best_x, int *best_y) {
                 board_copy(&clone, board);
                 ok = board_place(&clone, x, y, board->turn);
                 if(ok < 0) continue;
-                my_liberties = (color == BLACK ? clone.black_liberties + clone.black / 3 : clone.white_liberties + clone.white / 3);
-                op_liberties = (color == WHITE ? clone.black_liberties + clone.black / 3: clone.white_liberties + clone.white / 3);
+
+                rating = make_rating(&clone, color);
                 
-                if(strategy < 5) rating = my_liberties;
-                else if(strategy < 15) rating = -op_liberties;
-                else if(strategy < 17) rating = my_liberties - op_liberties;
-                else if(strategy < 19) rating = (double)my_liberties / (double)(op_liberties + 1);
-                else if(strategy < 21) rating = -(double)op_liberties / (double)(my_liberties + 1);
                 if(rating > best_move || best_move_found == 0) {
                     best_move = rating;
                     best_n = n;
                     *best_x = x;
                     *best_y = y;
                     best_move_found = 1;
+                    pass = 0;
                 }
             }
         }
     }
     board_release(&clone);
 
-    if(best_move_found) {
+    if(pass) {
+        *best_x = -1;
+        *best_y = -1;
+        return ERR_PASS;
+    }
+    else if(best_move_found) {
         return board_place(board, *best_x, *best_y, color);
     } else {
         return best_move;
@@ -237,11 +264,11 @@ int board_predict(BOARD* board, CELL_COLOR color, int *best_x, int *best_y) {
 }
 
 void board_encode(BOARD *board, char *out, size_t size) {
-    if(size < (board->square + 40)) {
+    if(size < (board->square + 30)) {
         *out = 0;
         return;
     }
-    int off = sprintf(out, "%04d %01d %04d ",  board->size, board->turn, board->ko), n = 0;
+    int off = sprintf(out, "%01d %04d %04d %04d %04d ", board->turn, board->size, board->ko, board->black_score, board->white_score), n = 0;
     char *p = out + off;
     for(n = 0; n < board->square; n++) {
         switch(board->cells[n].color) {
@@ -261,17 +288,19 @@ void board_encode(BOARD *board, char *out, size_t size) {
 }
 
 BOARD *board_decode(const char *text) {
-    int size, turn, ko;
-                        //0000 0 0000
-    int n = sscanf(text, "%04d %01d %04d", &size, &turn, &ko);
-    if(n != 3) return NULL;
+    int size, turn, ko, white, black;
+                        //0 0000 0000 0000 0000
+    int n = sscanf(text, "%01d %04d %04d %04d %04d", &turn, &size, &ko, &black, &white);
+    if(n != 5) return NULL;
     BOARD *board = (BOARD*)allocate(NULL, sizeof(BOARD));
     if(!board) return NULL;
-    board_init(board, size);
+    board_init(board, size, 65);
     board->turn = turn;
     board->ko = ko;
+    board->white_score = white;
+    board->black_score = black;
     n = 0;
-    text += 12;
+    text += 22;
     while(*text && n < board->square) {
         board->cells[n].color = *text == '+' ? EMPTY : (*text == 'X' ? BLACK : WHITE);
         text++; n++;

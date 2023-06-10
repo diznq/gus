@@ -15,16 +15,19 @@ class Game {
      * @param {HTMLDivElement} parent 
      * @param {Number} size
      */
-    constructor(parent, size) {
+    constructor(parent, score, pass, size) {
         this.session = "new";
         this.signature = "";
         this.parent = parent;
         this.size = size;
-        this.komi = 6.5;
+        this.score = score;
         this.turn = BLACK;
         this.cells = [];
         this.state = [];
         this.parent.innerHTML = "";
+
+        this.score.innerHTML = `<div class="black">Black: <span id="black_score">0</span></div><div class="white">White: <span id="white_score">6.5</span></div>`
+
         for(let y = 0; y < size; y++) {
             const row = document.createElement("div");
             row.className = "row";
@@ -41,6 +44,10 @@ class Game {
             parent.appendChild(row);
         }
         this.refreshState(-1, -1);
+
+        pass.onclick = () => {
+            this.refreshState(-2, -2)
+        }
     }
 
     /**
@@ -121,19 +128,25 @@ class Game {
         return liberties;
     }
 
-    refreshState(x, y, turn) {
+    refreshState(x, y) {
         const xhr = new XMLHttpRequest();
         xhr.onload = () => {
             const response = xhr.response;
             this.session = response.session;
             this.signature = response.signature;
             const params = this.session.split(" ")
+            const blackScore = parseFloat(params[3]) / 10
+            const whiteScore = parseFloat(params[4]) / 10
             this.parent.querySelectorAll(".highlighted").forEach(a => a.className = a.className.replace("highlighted", ""))
-            this.state = params[3].split("").map(a => {
+            this.state = params[5].split("").map(a => {
                 if(a == "+") return EMPTY;
                 else if(a == "X") return BLACK;
                 else return WHITE;
             })
+
+            document.getElementById("white_score").textContent = whiteScore.toFixed(1);
+            document.getElementById("black_score").textContent = blackScore.toFixed(1);
+
             this.refreshLiberties();
             
             for(let i = 0; i < this.state.length; i++) {

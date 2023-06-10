@@ -14,11 +14,12 @@
         <div class="board" id="board">
 
         </div>
+        <button id="pass">Pass</button><div class="score" id="score"></div>
     </div>
 
     <script>
         window.onload = () => {
-            window.game = new Game(document.getElementById("board"), 9)
+            window.game = new Game(document.getElementById("board"), document.getElementById("score"), document.getElementById("pass"), 9)
         }
     </script>
 </body>

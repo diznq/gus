@@ -25,7 +25,7 @@ void *allocate(void *mem, size_t size) {
 int main() {
     int x, y, n = 0;
     BOARD board;
-    board_init(&board, 9);
+    board_init(&board, 9, 65);
     for(;;) {
         printf("It's %s's turn!\n\n", board.turn == BLACK ? "black" : "white");
         board_print(&board);
@@ -64,19 +64,28 @@ int main() {
 #else
 
 static int l_gus_place(lua_State *L) {
-    if(lua_gettop(L) < 3 || lua_type(L, 1) != LUA_TLIGHTUSERDATA || lua_type(L, 2) != LUA_TNUMBER || lua_type(L, 3) != LUA_TNUMBER) {
-        return luaL_error(L, "expecting 3 arguments: board (lightuserdata), x (int), y (int)");
+    if(lua_gettop(L) < 3 
+    || lua_type(L, 1) != LUA_TLIGHTUSERDATA 
+    || lua_type(L, 2) != LUA_TNUMBER 
+    || lua_type(L, 3) != LUA_TNUMBER 
+    || lua_type(L, 4) != LUA_TBOOLEAN 
+    || lua_type(L, 5) != LUA_TBOOLEAN) {
+        return luaL_error(L, "expecting 3 arguments: board (lightuserdata), x (int), y (int), predict (bool), pass (bool)");
     }
     BOARD *board = (BOARD*)lua_touserdata(L, 1);
     int x = lua_tointeger(L, 2);
     int y = lua_tointeger(L, 3);
-    int predict = lua_gettop(L) == 4 && lua_type(L, 4) == LUA_TBOOLEAN && lua_toboolean(L, 4);
-    int ok = board_place(board, x, y, board->turn);
+    int predict = lua_toboolean(L, 4);
+    int pass = lua_toboolean(L, 5);
+    int ok = 0;
+    if(!pass) {
+        ok = board_place(board, x, y, board->turn);
+    }
     if(ok >= 0) {
         board->turn = board->turn == BLACK ? WHITE : BLACK;
         if(predict) {
             ok = board_predict(board, board->turn, &x, &y);
-            if(ok >= 0) {
+            if(ok >= 0 || ok == ERR_PASS) {
                 board->turn = board->turn == BLACK ? WHITE : BLACK;
             }
         }
@@ -108,7 +117,7 @@ static int l_gus_new(lua_State *L) {
     int size = lua_tointeger(L, 1);
     BOARD* board = allocate(NULL, sizeof(BOARD));
     if(!board) return 0;
-    board_init(board, size);
+    board_init(board, size, 65);
     lua_pushlightuserdata(L, board);
     return 1;
 }
