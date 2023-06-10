@@ -220,13 +220,13 @@ static double make_rating(BOARD *clone, CELL_COLOR color) {
     op_area = color != BLACK ? clone->black : clone->white;
     op_score = color != BLACK ? clone->black_score : clone->white_score;
     
-    rating = (my_score - op_score) * 10 - op_lib * (1.2 + uniform(0.4)) + my_lib * uniform(0.1) + (op_area - my_area) * 0.5;
+    rating = (my_score - op_score) * 100 - op_lib * (1.2 + uniform(0.4)) + my_lib * uniform(0.1) + (op_area / (1.0 + my_area)) * 0.4;
     return rating;
 }
 
 int board_predict(BOARD* board, CELL_COLOR color, int *best_x, int *best_y) {
     int best_move_found = 1, pass = 1, best_n = 0, n = 0, y, x, ok, my_liberties, op_liberties;
-    double best_move = make_rating(board, color), rating;
+    double best_move = make_rating(board, color) * (0.2 + uniform(0.5)), rating;
     BOARD clone;
     clone.cells = NULL;
     for(y = 0; y < board->size; y++) {
