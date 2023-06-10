@@ -3,9 +3,23 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="js/main.js"></script>
+    <link rel="stylesheet" href="css/style.css">
     <title>Gus (80s Go)</title>
 </head>
 <body>
     Hello world! This is Gus AI!
+
+    <div>
+        <div class="board" id="board">
+
+        </div>
+    </div>
+
+    <script>
+        window.onload = () => {
+            window.game = new Game(document.getElementById("board"), 9)
+        }
+    </script>
 </body>
 </html>
