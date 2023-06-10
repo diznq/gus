@@ -1,9 +1,13 @@
-const BLACK = 1;
-const WHITE = 2;
-const KO = 4;
-const EMPTY = 8;
-const KO_BLACK = BLACK | KO;
-const KO_WHITE = WHITE | KO;
+const BLACK = 0;
+const WHITE = 1;
+const EMPTY = 2;
+
+
+const   NO_ERR = 0,
+        ERR_PLACED = -1,
+        ERR_OOB = -2,
+        ERR_SUICIDE = -3,
+        ERR_KO = -4;
 
 class Game {
     /**
@@ -12,6 +16,8 @@ class Game {
      * @param {Number} size
      */
     constructor(parent, size) {
+        this.session = "new";
+        this.signature = "";
         this.parent = parent;
         this.size = size;
         this.komi = 6.5;
@@ -46,11 +52,7 @@ class Game {
      */
     handleClick(cell, event, x, y) {
         const state = this.$(x, y);
-        if(state & EMPTY) {
-            this.refreshState(x, y, this.turn);
-        } else if(state & KO) {
-            // handle ko
-        }
+        this.refreshState(x, y, this.turn);
     }
 
     propagate(groups, liberties, x, y, group, color) {
@@ -78,7 +80,7 @@ class Game {
                 let state = this.$(x, y)
                 let group = groups[y * this.size + x];
                 if(group > 0) continue;
-                if((state & (EMPTY | KO)) == 0) {
+                if(state != EMPTY) {
                     group = id++;
                     this.propagate(groups, liberties, x, y, group, state)
                 } else {
@@ -112,7 +114,7 @@ class Game {
             let Y = check[i][1]
             if(X < 0 || Y < 0 || X >= this.size || Y >= this.size) continue;
             let state = this.$(X, Y)
-            if(state & (KO | EMPTY)) {
+            if(state == EMPTY) {
                 liberties.push(Y * this.size + X)
             }
         }
@@ -120,45 +122,49 @@ class Game {
     }
 
     refreshState(x, y, turn) {
-        if(typeof(turn) != "undefined") {
-            this.$(x, y, turn)
-            this.turn = turn == BLACK ? WHITE : BLACK;
-        }
-        let removed = this.refreshLiberties()
-        let suicide = false;
-
-        if(removed.length > 0 && x >= 0 && y >= 0) {
-            if(removed.length == 1 && removed[0] == (y * this.size + x)) {
-                suicide = true;
-            } else {
-                removed = removed.filter(a => a != (y * this.size + x));
-            }
+        const xhr = new XMLHttpRequest();
+        xhr.onload = () => {
+            const response = xhr.response;
+            this.session = response.session;
+            this.signature = response.signature;
+            const params = this.session.split(" ")
+            this.state = params[3].split("").map(a => {
+                if(a == "+") return EMPTY;
+                else if(a == "X") return BLACK;
+                else return WHITE;
+            })
+            this.refreshLiberties();
             
-            if(suicide) {
-                // suicide is not allowed, revert back
-                this.state[y * this.size + x] = EMPTY;
-                this.turn = this.turn == BLACK ? WHITE : BLACK;
-                return false;
+            for(let i = 0; i < this.state.length; i++) {
+                const cell = this.state[i];
+                if(cell == EMPTY) {
+                    this.cells[i].className = "cell empty";
+                } else if(cell == WHITE) {
+                    this.cells[i].className = "cell white";
+                } else if(cell == BLACK) {
+                    this.cells[i].className = "cell black";
+                }
+                this.cells[i].textContent = (this.cells[i].getAttribute("data-liberties") || "-");
             }
+
+            if(response.status < 0) {
+                switch(response.status) {
+                    case ERR_SUICIDE:
+                        alert("Suicide is forbidden!");
+                        break;
+                    case ERR_KO:
+                        alert("Move leads to Ko!")
+                        break;
+                }
+            }
+
+            return true;
         }
 
-        for(let i = 0; i < removed.length; i++) this.state[removed[i]] = EMPTY;
-        removed = this.refreshLiberties()
-        for(let i = 0; i < removed.length; i++) this.state[removed[i]] = EMPTY;
-        
-        for(let i = 0; i < this.state.length; i++) {
-            const cell = this.state[i];
-            if(cell & (EMPTY | KO)) {
-                this.cells[i].className = "cell empty";
-            } else if(cell & WHITE) {
-                this.cells[i].className = "cell white";
-            } else if(cell & BLACK) {
-                this.cells[i].className = "cell black";
-            }
-            this.cells[i].textContent = (this.cells[i].getAttribute("data-liberties") || "-");
-        }
-
-        return true;
+        xhr.responseType = "json";
+        xhr.open("POST", "/go");
+        xhr.setRequestHeader("Content-type", "applicaton/www-form-urlencoded")
+        xhr.send("x=" + x + "&y=" + y + "&session=" + encodeURIComponent(this.session) + "&signature=" + this.signature + "&size=" + this.size);
     }
 
     /**

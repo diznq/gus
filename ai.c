@@ -1,62 +1,15 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include "ai.h"
 
-struct cell;
-struct board;
-struct int_vec;
-
-typedef enum go_err {
-    NO_ERR = 0,
-    ERR_PLACED = -1,
-    ERR_OOB = -2,
-    ERR_SUICIDE = -3,
-    ERR_KO = -4
-} GO_ERR;
-
-typedef enum cell_color {
-    BLACK = 0,
-    WHITE = 1,
-    EMPTY
-} CELL_COLOR;
-
-typedef struct cell {
-    CELL_COLOR color;
-    int group;
-    struct int_vec* liberties;
-} CELL;
-
-typedef struct board {
-    int size;
-    int square;
-    int turn;
-    int ko;
-    CELL *cells;
-} BOARD;
-
-typedef struct int_vec {
-    int size;
-    int capacity;
-    int refs;
-    int *values;
-} INT_VEC;
-
-void *allocate(void *mem, size_t size) {
-    if(size == 0) {
-        mem = NULL;
-    } else {
-        mem = realloc(mem, size);
-    }
-    return mem;
-}
-
-void int_vec_init(INT_VEC *vec, int capacity) {
+static void int_vec_init(INT_VEC *vec, int capacity) {
     vec->capacity = capacity;
     vec->size = 0;
     vec->refs = 0;
     vec->values = allocate(NULL, capacity * sizeof(int));
 }
 
-void int_vec_add(INT_VEC *vec, int element) {
+static void int_vec_add(INT_VEC *vec, int element) {
     if(vec->size >= vec->capacity) {
         vec->capacity = (vec->capacity + 1000) * 2;
         vec->values = allocate(vec->values, vec->capacity * sizeof(int));
@@ -66,18 +19,18 @@ void int_vec_add(INT_VEC *vec, int element) {
     }
 }
 
-void int_vec_rel(INT_VEC *vec) {
+static void int_vec_rel(INT_VEC *vec) {
     if(vec->values) {
         allocate(vec->values, 0);
         vec->values = NULL;
     }
 }
 
-void int_vec_add_ref(INT_VEC *vec) {
+static void int_vec_add_ref(INT_VEC *vec) {
     vec->refs++;
 }
 
-void int_vec_dec_ref(INT_VEC *vec) {
+static void int_vec_dec_ref(INT_VEC *vec) {
     vec->refs--;
     if(vec->refs == 0) {
         int_vec_rel(vec);
@@ -98,7 +51,7 @@ void board_init(BOARD* board, int size) {
     }
 }
 
-void board_add_liberty(BOARD *board, INT_VEC *liberties, int x, int y) {
+static void board_add_liberty(BOARD *board, INT_VEC *liberties, int x, int y) {
     if(x < 0 || y < 0 || x >= board->size || y >= board->size) return;
     CELL *cell = &board->cells[y * board->size + x];
     if(cell->color == EMPTY) {
@@ -106,7 +59,7 @@ void board_add_liberty(BOARD *board, INT_VEC *liberties, int x, int y) {
     }
 }
 
-void board_group_propagate(BOARD* board, INT_VEC *liberties, int x, int y, CELL_COLOR color, int group) {
+static void board_group_propagate(BOARD* board, INT_VEC *liberties, int x, int y, CELL_COLOR color, int group) {
     if(x < 0 || y < 0 || x >= board->size || y >= board->size) return;
     CELL *cell = &board->cells[y * board->size + x];
     if(cell->color == color && cell->group == 0) {
@@ -125,7 +78,7 @@ void board_group_propagate(BOARD* board, INT_VEC *liberties, int x, int y, CELL_
     }
 }
 
-int board_refresh(BOARD *board, int place_x, int place_y, CELL_COLOR color) {
+static int board_refresh(BOARD *board, int place_x, int place_y, CELL_COLOR color) {
     int x, y, n = 0, group = 1, suicide = 0, maybe_suicide = 0, place = place_y * board->size + place_x;
     int to_remove[board->square], to_remove_n = 0, self_remove = 0;
     CELL *cell;
@@ -184,17 +137,60 @@ int board_refresh(BOARD *board, int place_x, int place_y, CELL_COLOR color) {
     for(n = 0; n < to_remove_n; n++) {
         board->cells[to_remove[n]].color = EMPTY;
     }
-    return NO_ERR;
+
+    return to_remove_n;
 }
 
 int board_place(BOARD* board, int x, int y, CELL_COLOR color) {
     if(x < 0 || y < 0 || x >= board->size || y >= board->size) return ERR_OOB;
     if(y * board->size + x == board->ko) return ERR_KO;
     CELL *cell = &board->cells[y * board->size + x];
-    int ok;
     if(cell->color != EMPTY) return ERR_PLACED;
     board->cells[y * board->size + x].color = color;
     return board_refresh(board, x, y, color);
+}
+
+void board_encode(BOARD *board, char *out, size_t size) {
+    if(size < (board->square + 40)) {
+        *out = 0;
+        return;
+    }
+    int off = sprintf(out, "%04d %01d %04d ",  board->size, board->turn, board->ko), n = 0;
+    char *p = out + off;
+    for(n = 0; n < board->square; n++) {
+        switch(board->cells[n].color) {
+            case EMPTY:
+                *p = '+';
+                break;
+            case BLACK:
+                *p = 'X';
+                break;
+            case WHITE:
+                *p = 'O';
+                break;
+        }
+        p++;
+    }
+    *p = 0;
+}
+
+BOARD *board_decode(const char *text) {
+    int size, turn, ko;
+                        //0000 0 0000
+    int n = sscanf(text, "%04d %01d %04d", &size, &turn, &ko);
+    if(n != 3) return NULL;
+    BOARD *board = (BOARD*)allocate(NULL, sizeof(BOARD));
+    if(!board) return NULL;
+    board_init(board, size);
+    board->turn = turn;
+    board->ko = ko;
+    n = 0;
+    text += 12;
+    while(*text && n < board->square) {
+        board->cells[n].color = *text == '+' ? EMPTY : (*text == 'X' ? BLACK : WHITE);
+        text++; n++;
+    }
+    return board;
 }
 
 void board_print(BOARD *board) {
@@ -223,56 +219,3 @@ void board_print(BOARD *board) {
     *p = 0;
     printf("%s", picture);
 }
-
-int on_load(void *ctx, void *params, int reload) {
-
-}
-
-int on_unload(void *ctx, void *params, int reload) {
-
-}
-
-#ifndef SMOD_SO
-
-// Ko: 2 2 3 2 1 3 4 3 3 3 3 4 2 4 2 3 3 3
-// Suicide 1: 2 2 5 5 1 3 5 6 3 3 5 7 2 4
-// Suicide 2: 1 3 1 9 2 2 2 9 3 2 3 9 2 4 4 9 3 4 3 3 4 3 3 3
-
-int main() {
-    int x, y, n = 0;
-    BOARD board;
-    board_init(&board, 9);
-    for(;;) {
-        printf("It's %s's turn!\n\n", board.turn == BLACK ? "black" : "white");
-        board_print(&board);
-        do {
-            // loop until correct input is submitted
-            do {
-                printf("\nEnter your move (X Y): ");
-                n = scanf("%d %d", &x, &y);
-            } while(n != 2);
-
-            // loop until valid move is entered
-            x--, y--;
-            n = board_place(&board, x, y, board.turn);
-            if(n < 0) {
-                switch(n) {
-                    case ERR_OOB:
-                        printf("Entered position is outside of bounds!\n");
-                        break;
-                    case ERR_SUICIDE:
-                        printf("Entered position is suicidal!\n");
-                        break;
-                    case ERR_KO:
-                        printf("Entered position ends up in Ko!\n");
-                        break;
-                    case ERR_PLACED:
-                        printf("There is already a stone placed on entered position!\n");
-                        break;
-                }
-            }
-        } while(n < 0);
-        board.turn = board.turn == BLACK ? WHITE : BLACK;
-    }
-}
-#endif

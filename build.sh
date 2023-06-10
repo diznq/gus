@@ -1,10 +1,10 @@
 #!/usr/bin/env sh
 INC_SEARCH_PATH="$LUA_INC_PATH /usr/include/lua.h /usr/include/lua5.4/lua.h /usr/local/include/lua54/lua.h /usr/local/include/lua.h /mingw64/include/lua.h"
 JIT_INC_SEARCH_PATH="$LUA_INC_PATH /usr/local/include/luajit-2.1/lua.h /mingw64/include/luajit-2.1/lua.h"
-SO_SEARCH_PATH="$LUA_LIB_PATH /usr/lib64/liblua.so /usr/local/lib/liblua-5.4.so /usr/lib/x86_64-linux-gnu/liblua5.4.so"
+SO_SEARCH_PATH="$LUA_LIB_PATH /usr/lib64/liblua.so /usr/local/lib/liblua-5.4.so /usr/lib/x86_64-linux-gnu/liblua5.4.so /mingw64/lib/liblua.dll.a"
 JIT_SO_SEARCH_PATH="$LUA_LIB_PATH /usr/lib64/libluajit-5.1.so* /usr/local/lib/libluajit-5.1.so*"
 LIB_SEARCH_PATH="$LUA_LIB_PATH /usr/local/lib/liblua.a /usr/local/lib/liblua-5.4.a /mingw64/lib/liblua.a"
-JIT_LIB_SEARCH_PATH="$LUA_LIB_PATH /usr/local/lib/libluajit-5.1.a /mingw64/lib/libluajit-5.1.a"
+JIT_LIB_SEARCH_PATH="$LUA_LIB_PATH /usr/local/lib/libluajit-5.1.a /mingw64/lib/libluajit-5.1.a /mingw64/lib/libluajit-5.1.dll.a"
 SO_EXT="so"
 
 if [ "$JIT" = "true" ]; then
@@ -47,7 +47,7 @@ if [ -z "$LUA_INC" ]; then
 fi
 
 if [ "$LINK" = "dynamic" ]; then
-  LUA_LIB=$(echo "$LUA_LIB" | sed 's/.*[/]lib/-l/g' | sed 's/.so.*//g')
+  LUA_LIB=$(echo "$LUA_LIB" | sed 's/.*[/]lib/-l/g' | sed 's/.so.*//g' | sed 's/.dll.*//g')
 fi
 
 FLAGS="-s -O3"
@@ -85,7 +85,7 @@ echo "Lua include directory: $LUA_INC"
 echo "Lua library directory: $LUA_LIB"
 
 DEFINES="$DEFINES -DS80_DYNAMIC=1"
-$CC i.gus/ai.c \
+$CC i.gus/ai.c i.gus/main.c \
     -shared -fPIC \
     $LUA_LIB \
     "-I$LUA_INC" \
