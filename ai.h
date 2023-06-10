@@ -25,6 +25,7 @@ typedef enum cell_color {
 typedef struct cell {
     CELL_COLOR color;
     int group;
+    int n_liberties;
     struct int_vec* liberties;
 } CELL;
 
@@ -33,6 +34,10 @@ typedef struct board {
     int square;
     int turn;
     int ko;
+    int white_liberties;
+    int black_liberties;
+    int white;
+    int black;
     CELL *cells;
 } BOARD;
 
@@ -44,8 +49,10 @@ typedef struct int_vec {
 } INT_VEC;
 
 void *allocate(void *mem, size_t size);
-void board_init(BOARD* board, int size);
-int  board_place(BOARD* board, int x, int y, CELL_COLOR color);
+void board_init(BOARD *board, int size);
+void board_release(BOARD *board);
+int  board_place(BOARD *board, int x, int y, CELL_COLOR color);
+int  board_predict(BOARD* board, CELL_COLOR color, int *best_x, int *best_y);
 void board_print(BOARD *board);
 void board_encode(BOARD *board, char *out, size_t buffer);
 BOARD *board_decode(const char *text);

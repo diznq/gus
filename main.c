@@ -63,18 +63,27 @@ int main() {
 #else
 
 static int l_gus_place(lua_State *L) {
-    if(lua_gettop(L) != 3 || lua_type(L, 1) != LUA_TLIGHTUSERDATA || lua_type(L, 2) != LUA_TNUMBER || lua_type(L, 3) != LUA_TNUMBER) {
+    if(lua_gettop(L) < 3 || lua_type(L, 1) != LUA_TLIGHTUSERDATA || lua_type(L, 2) != LUA_TNUMBER || lua_type(L, 3) != LUA_TNUMBER) {
         return luaL_error(L, "expecting 3 arguments: board (lightuserdata), x (int), y (int)");
     }
     BOARD *board = (BOARD*)lua_touserdata(L, 1);
     int x = lua_tointeger(L, 2);
     int y = lua_tointeger(L, 3);
+    int predict = lua_gettop(L) == 4 && lua_type(L, 4) == LUA_TBOOLEAN && lua_toboolean(L, 4);
     int ok = board_place(board, x, y, board->turn);
     if(ok >= 0) {
         board->turn = board->turn == BLACK ? WHITE : BLACK;
+        if(predict) {
+            ok = board_predict(board, board->turn, &x, &y);
+            if(ok >= 0) {
+                board->turn = board->turn == BLACK ? WHITE : BLACK;
+            }
+        }
     }
     lua_pushinteger(L, ok);
-    return 1;
+    lua_pushinteger(L, x);
+    lua_pushinteger(L, y);
+    return 3;
 }
 
 static int l_gus_state(lua_State *L) {
@@ -108,6 +117,7 @@ static int l_gus_free(lua_State *L) {
         return luaL_error(L, "expecting 1 argument: board (lightuserdata)");
     }
     BOARD *board = (BOARD*)lua_touserdata(L, 1);
+    board_release(board);
     free(board);
     return 0;
 }

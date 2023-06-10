@@ -3,7 +3,7 @@ local aio = require("aio.aio")
 --- @class gus
 --- @field new fun(size: integer): lightuserdata
 --- @field free fun(board: lightuserdata)
---- @field place fun(board: lightuserdata, x: integer, y: integer): integer
+--- @field place fun(board: lightuserdata, x: integer, y: integer, predict: boolean): integer, integer, integer
 --- @field encode fun(board: lightuserdata): string
 --- @field decode fun(text: string): lightuserdata
 gus = gus or {}
@@ -16,6 +16,7 @@ aio:http_post("/go", function (self, query, headers, body)
     local x = tonumber(params.x)
     local y = tonumber(params.y)
     local board = nil
+    local predict = false
     
     if size > 19 then
         self:http_response("400 Bad request", "application/json", { error = "board size is too big" })
@@ -33,6 +34,7 @@ aio:http_post("/go", function (self, query, headers, body)
             return
         end
         board = gus.decode(params.session)
+        predict = true
     end
     if not board then
         self:http_response("500 Internal server error", "application/json", {error = "failed to allocate board"})
@@ -40,13 +42,15 @@ aio:http_post("/go", function (self, query, headers, body)
     end
     local status = 0
     if x ~= nil and y ~= nil then
-        status = gus.place(board, x, y)
+        status, x, y = gus.place(board, x, y, predict)
     end 
     local encoded = gus.encode(board)
     self:http_response("200 OK", "application/json", {
         session = encoded,
         signature = codec.hex_encode(crypto.hmac_sha256(encoded, salt)),
-        status = status
+        status = status,
+        x = x,
+        y = y
     })
     gus.free(board)
 end)

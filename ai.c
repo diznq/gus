@@ -51,11 +51,41 @@ void board_init(BOARD* board, int size) {
     }
 }
 
+void board_release(BOARD *board) {
+    if(board->cells) {
+        free(board->cells);
+        board->cells = NULL;
+    }
+}
+
+static void board_copy(BOARD* out, BOARD* board) {
+    int n;
+    out->size = board->size;
+    out->square = board->square;
+    if(!out->cells) {
+        out->cells = (CELL*)allocate(NULL, sizeof(CELL) * board->square);
+    }
+    out->black_liberties = board->black_liberties;
+    out->white_liberties = board->white_liberties;
+    out->ko = board->ko;
+    out->turn = board->turn;
+    for(n = 0; n < board->square; n++) {
+        out->cells[n].color = board->cells[n].color;
+        out->cells[n].n_liberties = board->cells[n].n_liberties;
+        out->cells[n].group = board->cells[n].group;
+        out->cells[n].liberties = board->cells[n].liberties;
+    }
+}
+
 static void board_add_liberty(BOARD *board, INT_VEC *liberties, int x, int y) {
     if(x < 0 || y < 0 || x >= board->size || y >= board->size) return;
-    CELL *cell = &board->cells[y * board->size + x];
+    int place = y * board->size + x, n;
+    CELL *cell = &board->cells[place];
+    for(n = 0; n < liberties->size; n++) {
+        if(liberties->values[n] == place) return;
+    }
     if(cell->color == EMPTY) {
-        int_vec_add(liberties, y * board->size + x);
+        int_vec_add(liberties, place);
     }
 }
 
@@ -78,16 +108,23 @@ static void board_group_propagate(BOARD* board, INT_VEC *liberties, int x, int y
     }
 }
 
-static int board_refresh(BOARD *board, int place_x, int place_y, CELL_COLOR color) {
+static int board_refresh(BOARD *board, int place_x, int place_y, CELL_COLOR color, int update) {
     int x, y, n = 0, group = 1, suicide = 0, maybe_suicide = 0, place = place_y * board->size + place_x;
     int to_remove[board->square], to_remove_n = 0, self_remove = 0;
     CELL *cell;
     INT_VEC *liberties;
     // clean-up old state if there was any
+    board->white_liberties = 0;
+    board->black_liberties = 0;
+    board->white = 0;
+    board->black = 0;
     for(n = 0; n < board->square; n++) {
         cell = &board->cells[n];
         cell->group = 0;
         cell->liberties = NULL;
+        cell->n_liberties = 0;
+        board->white += cell->color == WHITE;
+        board->black += cell->color == BLACK;
     }
 
     n = 0;
@@ -113,32 +150,42 @@ static int board_refresh(BOARD *board, int place_x, int place_y, CELL_COLOR colo
     for(n = 0; n < board->square; n++) {
         cell = &board->cells[n];
         if(cell->liberties) {
+            cell->n_liberties = cell->liberties->size;
             if(cell->liberties->size == 0) {
                 if(cell->color == color) self_remove++;
                 else to_remove[to_remove_n++] = n;
             }
             int_vec_dec_ref(cell->liberties);
             if(cell->liberties->refs == 0) {
+                if(cell->color == BLACK) board->black_liberties += cell->liberties->size;
+                else if(cell->color == WHITE) board->white_liberties += cell->liberties->size;
                 allocate(cell->liberties, 0);
                 cell->liberties = NULL;
             }
         }
     }
 
-    // check for suicide. ko and other states that can happen
-    if(to_remove_n == 0 && self_remove > 0) {
-        board->cells[place].color = EMPTY;
-        return ERR_SUICIDE;
-    } else if(to_remove_n == 1) {
-        board->ko = to_remove[0];
-    } else {
-        board->ko = -1;
-    }
-    for(n = 0; n < to_remove_n; n++) {
-        board->cells[to_remove[n]].color = EMPTY;
-    }
+    if(update) {
+        // check for suicide. ko and other states that can happen
+        if(to_remove_n == 0 && self_remove > 0) {
+            board->cells[place].color = EMPTY;
+            return ERR_SUICIDE;
+        } else if(to_remove_n == 1) {
+            board->ko = to_remove[0];
+        } else {
+            board->ko = -1;
+        }
+        for(n = 0; n < to_remove_n; n++) {
+            cell = &board->cells[to_remove[n]];
+            board->white -= cell->color == WHITE;
+            board->black -= cell->color == BLACK;
+            cell->color = EMPTY;
+        }
 
-    return to_remove_n;
+        return to_remove_n;
+    } else {
+        return to_remove_n;
+    }
 }
 
 int board_place(BOARD* board, int x, int y, CELL_COLOR color) {
@@ -147,7 +194,46 @@ int board_place(BOARD* board, int x, int y, CELL_COLOR color) {
     CELL *cell = &board->cells[y * board->size + x];
     if(cell->color != EMPTY) return ERR_PLACED;
     board->cells[y * board->size + x].color = color;
-    return board_refresh(board, x, y, color);
+    return board_refresh(board, x, y, color, 1);
+}
+
+int board_predict(BOARD* board, CELL_COLOR color, int *best_x, int *best_y) {
+    int best_move_found = 0, best_n = 0, n = 0, y, x, ok, my_liberties, op_liberties;
+    double best_move, rating;
+    int strategy = rand() % 22;
+    BOARD clone;
+    clone.cells = NULL;
+    for(y = 0; y < board->size; y++) {
+        for(x = 0; x < board->size; x++, n++) {
+            if(board->cells[n].color == EMPTY) {
+                board_copy(&clone, board);
+                ok = board_place(&clone, x, y, board->turn);
+                if(ok < 0) continue;
+                my_liberties = (color == BLACK ? clone.black_liberties + clone.black / 3 : clone.white_liberties + clone.white / 3);
+                op_liberties = (color == WHITE ? clone.black_liberties + clone.black / 3: clone.white_liberties + clone.white / 3);
+                
+                if(strategy < 5) rating = my_liberties;
+                else if(strategy < 15) rating = -op_liberties;
+                else if(strategy < 17) rating = my_liberties - op_liberties;
+                else if(strategy < 19) rating = (double)my_liberties / (double)(op_liberties + 1);
+                else if(strategy < 21) rating = -(double)op_liberties / (double)(my_liberties + 1);
+                if(rating > best_move || best_move_found == 0) {
+                    best_move = rating;
+                    best_n = n;
+                    *best_x = x;
+                    *best_y = y;
+                    best_move_found = 1;
+                }
+            }
+        }
+    }
+    board_release(&clone);
+
+    if(best_move_found) {
+        return board_place(board, *best_x, *best_y, color);
+    } else {
+        return best_move;
+    }
 }
 
 void board_encode(BOARD *board, char *out, size_t size) {
