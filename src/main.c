@@ -9,6 +9,7 @@
 
 void *allocate(void *mem, size_t size) {
     if(size == 0) {
+        free(mem);
         mem = NULL;
     } else {
         mem = realloc(mem, size);
