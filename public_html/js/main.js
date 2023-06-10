@@ -128,6 +128,7 @@ class Game {
             this.session = response.session;
             this.signature = response.signature;
             const params = this.session.split(" ")
+            this.parent.querySelectorAll(".highlighted").forEach(a => a.className = a.className.replace("highlighted", ""))
             this.state = params[3].split("").map(a => {
                 if(a == "+") return EMPTY;
                 else if(a == "X") return BLACK;
@@ -143,6 +144,9 @@ class Game {
                     this.cells[i].className = "cell white";
                 } else if(cell == BLACK) {
                     this.cells[i].className = "cell black";
+                }
+                if(i == response.y * this.size + response.x) {
+                    this.cells[i].className += " highlighted";
                 }
                 this.cells[i].textContent = (this.cells[i].getAttribute("data-liberties") || "-");
             }

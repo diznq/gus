@@ -24,6 +24,12 @@
     cursor: pointer
 }
 
+.highlighted {
+    outline: double;
+    outline-color: red;
+    outline-width: 2px;
+}
+
 .cell.empty {
     background-color: transparent;
 }
