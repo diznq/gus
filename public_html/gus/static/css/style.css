@@ -43,3 +43,13 @@
     background-color: black;
     color: white;
 }
+
+.ai-pass {
+    display: none;
+    color: red;
+    font-weight: 600;
+}
+
+.ai-pass.ai-pass-true {
+    display: block;
+}

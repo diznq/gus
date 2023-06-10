@@ -86,6 +86,7 @@ static int l_gus_place(lua_State *L) {
         if(predict) {
             ok = board_predict(board, board->turn, &x, &y);
             if(ok >= 0 || ok == ERR_PASS) {
+                if(ok == ERR_PASS) board->ko = -1;
                 board->turn = board->turn == BLACK ? WHITE : BLACK;
             }
         }

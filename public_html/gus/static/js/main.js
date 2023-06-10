@@ -7,7 +7,8 @@ const   NO_ERR = 0,
         ERR_PLACED = -1,
         ERR_OOB = -2,
         ERR_SUICIDE = -3,
-        ERR_KO = -4;
+        ERR_KO = -4,
+        ERR_PASS = -5;
 
 class Game {
     /**
@@ -26,7 +27,7 @@ class Game {
         this.state = [];
         this.parent.innerHTML = "";
 
-        this.score.innerHTML = `<div class="black">Black: <span id="black_score">0</span></div><div class="white">White: <span id="white_score">6.5</span></div>`
+        this.score.innerHTML = `<div class="ai-pass" id="ai_pass">AI passes</div><div class="black">Black: <span id="black_score">0</span></div><div class="white">White: <span id="white_score">6.5</span></div>`
 
         for(let y = 0; y < size; y++) {
             const row = document.createElement("div");
@@ -164,6 +165,8 @@ class Game {
                 this.cells[i].textContent = (this.cells[i].getAttribute("data-liberties") || "-");
             }
 
+            document.getElementById("ai_pass").className = "ai-pass";
+
             if(response.status < 0) {
                 switch(response.status) {
                     case ERR_SUICIDE:
@@ -171,6 +174,9 @@ class Game {
                         break;
                     case ERR_KO:
                         alert("Move leads to Ko!")
+                        break;
+                    case ERR_PASS:
+                        document.getElementById("ai_pass").className = "ai-pass ai-pass-true";
                         break;
                 }
             }
