@@ -10,7 +10,7 @@ gus = gus or {}
 
 local salt = os.getenv("SALT") or "GusAI"
 
-aio:http_post("/go", function (self, query, headers, body)
+aio:http_post("/gus/go", function (self, query, headers, body)
     local params = aio:parse_query(body)
     local size = tonumber(params.size)
     local x = tonumber(params.x)

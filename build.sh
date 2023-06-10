@@ -85,7 +85,7 @@ echo "Lua include directory: $LUA_INC"
 echo "Lua library directory: $LUA_LIB"
 
 DEFINES="$DEFINES -DS80_DYNAMIC=1"
-$CC i.gus/ai.c i.gus/main.c \
+$CC i.gus/src/ai.c i.gus/src/main.c \
     -shared -fPIC \
     $LUA_LIB \
     "-I$LUA_INC" \

@@ -4,7 +4,7 @@
 #include <lua.h>
 #include <lauxlib.h>
 #include <lualib.h>
-#include "../src/80s.h"
+#include "../../src/80s.h"
 #endif
 
 void *allocate(void *mem, size_t size) {

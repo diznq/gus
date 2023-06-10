@@ -166,7 +166,7 @@ class Game {
         }
 
         xhr.responseType = "json";
-        xhr.open("POST", "/go");
+        xhr.open("POST", "/gus/go");
         xhr.setRequestHeader("Content-type", "applicaton/www-form-urlencoded")
         xhr.send("x=" + x + "&y=" + y + "&session=" + encodeURIComponent(this.session) + "&signature=" + this.signature + "&size=" + this.size);
     }
