@@ -223,7 +223,7 @@ static double make_rating(BOARD *clone, CELL_COLOR color) {
     op_area = color != BLACK ? clone->black : clone->white;
     op_score = color != BLACK ? clone->black_score : clone->white_score;
     
-    rating = (my_score - op_score) * 100.0 - op_lib * 25 + my_lib * 10.0 + op_area * 5.0 - my_area * 7.0;
+    rating = (my_score - op_score) * 400.0 - op_lib * 25 + my_lib * 10.0 + op_area * 5.0 - my_area * 7.0;
     return rating;
 }
 
