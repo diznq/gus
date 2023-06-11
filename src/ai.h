@@ -59,6 +59,7 @@ typedef struct int_vec {
 
 void *allocate(void *mem, size_t size);
 void board_init(BOARD *board, int size, int komi);
+int  board_refresh(BOARD *board, int place_x, int place_y, CELL_COLOR color, int update);
 int  board_place(BOARD *board, int x, int y, CELL_COLOR color);
 int  board_predict(BOARD* board, CELL_COLOR color, int *best_x, int *best_y);
 void board_print(BOARD *board);

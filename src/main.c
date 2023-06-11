@@ -80,6 +80,8 @@ static int l_gus_place(lua_State *L) {
     int ok = 0;
     if(!pass) {
         ok = board_place(board, x, y, board->turn);
+    } else {
+        board_refresh(board, -1, -1, board->turn, 0);
     }
     if(ok >= 0) {
         board->turn = board->turn == BLACK ? WHITE : BLACK;

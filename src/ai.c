@@ -23,6 +23,8 @@ static void int_vec_add(INT_VEC *vec, int element) {
 static void int_vec_rel(INT_VEC *vec) {
     if(vec->values) {
         allocate(vec->values, 0);
+        vec->capacity = 0;
+        vec->size = 0;
         vec->values = NULL;
     }
 }
@@ -33,9 +35,6 @@ static void int_vec_add_ref(INT_VEC *vec) {
 
 static void int_vec_dec_ref(INT_VEC *vec) {
     vec->refs--;
-    if(vec->refs == 0) {
-        int_vec_rel(vec);
-    }
 }
 
 void board_init(BOARD* board, int size, int komi) {
@@ -68,6 +67,8 @@ static void board_copy(BOARD* out, BOARD* board) {
     out->square = board->square;
     out->id = board->id;
     out->score = board->score;
+    out->white = board->white;
+    out->black = board->black;
     out->white_score = board->white_score;
     out->black_score = board->black_score;
     out->black_liberties = board->black_liberties;
@@ -113,7 +114,7 @@ static void board_group_propagate(BOARD* board, INT_VEC *liberties, int x, int y
     }
 }
 
-static int board_refresh(BOARD *board, int place_x, int place_y, CELL_COLOR color, int update) {
+int board_refresh(BOARD *board, int place_x, int place_y, CELL_COLOR color, int update) {
     int x, y, n = 0, group = 1, suicide = 0, maybe_suicide = 0, place = place_y * board->size + place_x;
     int to_remove[board->square], to_remove_n = 0, self_remove = 0;
     CELL *cell;
@@ -164,6 +165,7 @@ static int board_refresh(BOARD *board, int place_x, int place_y, CELL_COLOR colo
             if(cell->liberties->refs == 0) {
                 if(cell->color == BLACK) board->black_liberties += cell->liberties->size;
                 else if(cell->color == WHITE) board->white_liberties += cell->liberties->size;
+                int_vec_rel(cell->liberties);
                 allocate(cell->liberties, 0);
                 cell->liberties = NULL;
             }
@@ -208,7 +210,7 @@ int board_place(BOARD* board, int x, int y, CELL_COLOR color) {
 }
 
 static double uniform(double w) {
-    return w * (double)rand() / RAND_MAX;
+    return w / 2.0; // no random, * (double)rand() / RAND_MAX;
 }
 
 static double make_rating(BOARD *clone, CELL_COLOR color) {
@@ -221,7 +223,7 @@ static double make_rating(BOARD *clone, CELL_COLOR color) {
     op_area = color != BLACK ? clone->black : clone->white;
     op_score = color != BLACK ? clone->black_score : clone->white_score;
     
-    rating = (my_score - op_score) * 100 - op_lib * (1.2 + uniform(0.4)) + my_lib * uniform(0.1) + (op_area / (1.0 + my_area)) * 0.4;
+    rating = (my_score - op_score) * 100.0 - op_lib * 25 + my_lib * 10.0 + op_area * 5.0 - my_area * 7.0;
     return rating;
 }
 
@@ -234,7 +236,6 @@ static int rating_sort(const void *a, const void *b) {
 int board_predict(BOARD* board, CELL_COLOR color, int *best_x, int *best_y) {
     CELL_COLOR o_color = color;
     int pick_rate = 2,
-        pass = 0,
         y = 0,
         x = 0,
         n = 0,
@@ -244,27 +245,35 @@ int board_predict(BOARD* board, CELL_COLOR color, int *best_x, int *best_y) {
         pivot = 0,
         sector_start = 0,
         sector_end = 1,
-        depth = 5;
+        depth = 5,
+        to_alloc = 1,
+        last_pow; 
+    int stops[10][2];
+    double pass = 0.0;
 
-    double best_move = make_rating(board, color) * 0.3, rating;
-    int to_alloc = 1, last_pow = pick_rate;
+    last_pow = pick_rate;
     for(d = 0; d < depth; d++) {
         to_alloc += last_pow;
         last_pow = last_pow * last_pow;
     }
-    printf("to alloc: %d\n", to_alloc);
 
-
-    BOARD *boards = calloc(to_alloc, sizeof(BOARD));
+    BOARD *boards = calloc(to_alloc, sizeof(BOARD)), *sel;
     BOARD helper[board->square];
-    BOARD *sel;
-    int stops[10][2];
+    if(!boards) {
+        *best_x = -1;
+        *best_y = -1;
+        return ERR_PASS;
+    }
     board_copy(boards, board);
     boards->id = 0;
     boards->parent = NULL;
     boards->best_child = NULL;
     boards->id = ERR_PASS;
     boards->score = make_rating(boards, color);
+    pass = boards->score;
+    //printf("white score: %d, black score: %d\n", boards->white_score, boards->black_score);
+    //printf("white lib: %d, black lib: %d\n", boards->white_liberties, boards->black_liberties);
+    //printf("white: %d, black: %d\n", boards->white, boards->black);
 
     stops[0][0] = 0; stops[0][1] = 1;
     for(d=0; d < depth; d++) {
@@ -305,13 +314,16 @@ int board_predict(BOARD* board, CELL_COLOR color, int *best_x, int *best_y) {
             sel = boards + pivot;
             if(sel->parent->best_child == NULL || sel->score > sel->parent->best_child->score) {
                 sel->parent->best_child = sel;
+                sel->parent->score = sel->score;
             }
         }
     }
 
     sel = boards[0].best_child;
+
+    //printf("no move score: %f, move score: %f\n", pass, sel->score);
     
-    if(sel->id < 0) {
+    if(sel->id < 0 || sel->score < pass * 0.5) {
         *best_x = -1;
         *best_y = -1;
         free(boards);
