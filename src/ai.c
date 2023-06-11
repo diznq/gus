@@ -1,19 +1,35 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <math.h>
 #include "ai.h"
 
-static void int_vec_init(INT_VEC *vec, int capacity) {
+static void int_vec_init(INT_VEC *vec, int capacity, int *mem) {
     vec->capacity = capacity;
     vec->size = 0;
     vec->refs = 0;
-    vec->values = allocate(NULL, capacity * sizeof(int));
+    if(mem) {
+        vec->values = mem;
+        vec->on_stack = 1;
+    } else {
+        vec->values = allocate(NULL, capacity * sizeof(int));
+        vec->on_stack = 0;
+    }
 }
 
 static void int_vec_add(INT_VEC *vec, int element) {
+    int *prev = vec->values;
     if(vec->size >= vec->capacity) {
         vec->capacity = (vec->capacity + 1000) * 2;
-        vec->values = allocate(vec->values, vec->capacity * sizeof(int));
+        if(vec->on_stack) {
+            vec->values = allocate(NULL, vec->capacity * sizeof(int));
+            if(vec->values) {
+                vec->on_stack = 0;
+                memcpy(vec->values, prev, sizeof(int) * vec->size);
+            }
+        } else {
+            vec->values = allocate(vec->values, vec->capacity * sizeof(int));
+        }
     }
     if(vec->values) {
         vec->values[vec->size++] = element;
@@ -22,7 +38,9 @@ static void int_vec_add(INT_VEC *vec, int element) {
 
 static void int_vec_rel(INT_VEC *vec) {
     if(vec->values) {
-        allocate(vec->values, 0);
+        if(vec->on_stack == 0) {
+            allocate(vec->values, 0);
+        }
         vec->capacity = 0;
         vec->size = 0;
         vec->values = NULL;
@@ -115,10 +133,12 @@ static void board_group_propagate(BOARD* board, INT_VEC *liberties, int x, int y
 }
 
 int board_refresh(BOARD *board, int place_x, int place_y, CELL_COLOR color, int update) {
-    int x, y, n = 0, group = 1, suicide = 0, maybe_suicide = 0, place = place_y * board->size + place_x;
+    int x, y, n = 0, group = 1, suicide = 0, maybe_suicide = 0, place = place_y * board->size + place_x, id;
     int to_remove[board->square], to_remove_n = 0, self_remove = 0;
+    int liberties_arr[MAX_BOARD * MAX_BOARD / 2][MAX_BOARD * MAX_BOARD];
+    INT_VEC liberties[MAX_BOARD * MAX_BOARD / 2];
+
     CELL *cell;
-    INT_VEC *liberties;
     // clean-up old state if there was any
     board->white_liberties = 0;
     board->black_liberties = 0;
@@ -142,9 +162,9 @@ int board_refresh(BOARD *board, int place_x, int place_y, CELL_COLOR color, int 
             if(cell->group) {
                 continue;
             } else if(cell->color != EMPTY) {
-                liberties = (INT_VEC*)allocate(NULL, sizeof(INT_VEC));
-                int_vec_init(liberties, board->square >> 1);
-                board_group_propagate(board, liberties, x, y, cell->color, group++);
+                id = group++;
+                int_vec_init(liberties + id, MAX_BOARD * MAX_BOARD, liberties_arr[id]);
+                board_group_propagate(board, liberties + id, x, y, cell->color, id);
             } else {
                 cell->group = 0;
                 cell->liberties = NULL;
@@ -166,7 +186,6 @@ int board_refresh(BOARD *board, int place_x, int place_y, CELL_COLOR color, int 
                 if(cell->color == BLACK) board->black_liberties += cell->liberties->size;
                 else if(cell->color == WHITE) board->white_liberties += cell->liberties->size;
                 int_vec_rel(cell->liberties);
-                allocate(cell->liberties, 0);
                 cell->liberties = NULL;
             }
         }

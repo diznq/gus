@@ -56,6 +56,7 @@ typedef struct int_vec {
     int size;
     int capacity;
     int refs;
+    int on_stack;
     int *values;
 } INT_VEC;
 
