@@ -233,7 +233,7 @@ static int rating_sort(const void *a, const void *b) {
 
 int board_predict(BOARD* board, CELL_COLOR color, int *best_x, int *best_y) {
     CELL_COLOR o_color = color;
-    int pick_rate = 3,
+    int pick_rate = 2,
         pass = 0,
         y = 0,
         x = 0,
@@ -244,12 +244,18 @@ int board_predict(BOARD* board, CELL_COLOR color, int *best_x, int *best_y) {
         pivot = 0,
         sector_start = 0,
         sector_end = 1,
-        depth = 3;
+        depth = 5;
 
     double best_move = make_rating(board, color) * 0.3, rating;
-    int to_alloc = pow(pick_rate, depth) / (pick_rate - 1);
+    int to_alloc = 1, last_pow = pick_rate;
+    for(d = 0; d < depth; d++) {
+        to_alloc += last_pow;
+        last_pow = last_pow * last_pow;
+    }
+    printf("to alloc: %d\n", to_alloc);
 
-    BOARD *boards = calloc(1 + pick_rate + pick_rate * pick_rate + pick_rate * pick_rate * pick_rate * pick_rate, sizeof(BOARD));
+
+    BOARD *boards = calloc(to_alloc, sizeof(BOARD));
     BOARD helper[board->square];
     BOARD *sel;
     int stops[10][2];
