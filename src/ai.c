@@ -223,7 +223,7 @@ static double make_rating(BOARD *clone, CELL_COLOR color) {
     op_area = color != BLACK ? clone->black : clone->white;
     op_score = color != BLACK ? clone->black_score : clone->white_score;
     
-    rating = (my_score - op_score) * 400.0 - op_lib * 25 + my_lib * 10.0 + op_area * 5.0 - my_area * 7.0;
+    rating = (my_score - op_score) * 1000.0 - op_lib * 100.0 + my_lib * 10.0 - op_area * 50.0 - my_area * 7.0;
     return rating;
 }
 
@@ -235,7 +235,7 @@ static int rating_sort(const void *a, const void *b) {
 
 int board_predict(BOARD* board, CELL_COLOR color, int *best_x, int *best_y) {
     CELL_COLOR o_color = color;
-    int pick_rate = 2,
+    int pick_rates[] = {4, 3, 2, 1, 1, 1, 2, 3, 4},
         y = 0,
         x = 0,
         n = 0,
@@ -245,16 +245,17 @@ int board_predict(BOARD* board, CELL_COLOR color, int *best_x, int *best_y) {
         pivot = 0,
         sector_start = 0,
         sector_end = 1,
-        depth = 5,
         to_alloc = 1,
         last_pow; 
-    int stops[10][2];
+    int depth = sizeof(pick_rates) / sizeof(pick_rates[0]);
+    int sizes[50];
+    int stops[50][2];
     double pass = 0.0;
 
-    last_pow = pick_rate;
+    sizes[0] = 1;
+    last_pow = pick_rates[0];
     for(d = 0; d < depth; d++) {
-        to_alloc += last_pow;
-        last_pow = last_pow * last_pow;
+        to_alloc += sizes[d + 1] = sizes[d] * pick_rates[d];
     }
 
     BOARD *boards = calloc(to_alloc, sizeof(BOARD)), *sel;
@@ -271,9 +272,6 @@ int board_predict(BOARD* board, CELL_COLOR color, int *best_x, int *best_y) {
     boards->id = ERR_PASS;
     boards->score = make_rating(boards, color);
     pass = boards->score;
-    //printf("white score: %d, black score: %d\n", boards->white_score, boards->black_score);
-    //printf("white lib: %d, black lib: %d\n", boards->white_liberties, boards->black_liberties);
-    //printf("white: %d, black: %d\n", boards->white, boards->black);
 
     stops[0][0] = 0; stops[0][1] = 1;
     for(d=0; d < depth; d++) {
@@ -295,7 +293,7 @@ int board_predict(BOARD* board, CELL_COLOR color, int *best_x, int *best_y) {
                 }
             }
             qsort(helper, n, sizeof(BOARD), rating_sort);
-            for(n = 0; n < pick_rate; n++, m++) {
+            for(n = 0; n < pick_rates[d]; n++, m++) {
                 board_copy(boards + m, helper + n);
             }
         }
