@@ -321,7 +321,7 @@ int board_predict(BOARD* board, CELL_COLOR color, int *best_x, int *best_y) {
 
     //printf("no move score: %f, move score: %f\n", pass, sel->score);
     
-    if(sel->id < 0 || sel->score < pass * 0.5) {
+    if(sel->id < 0/*|| sel->score < pass * 0.5*/) {
         *best_x = -1;
         *best_y = -1;
         free(boards);
