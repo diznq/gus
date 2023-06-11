@@ -8,6 +8,8 @@ struct cell;
 struct board;
 struct int_vec;
 
+#define MAX_BOARD 13
+
 typedef enum go_err {
     NO_ERR = 0,
     ERR_PLACED = -1,
@@ -35,7 +37,7 @@ typedef struct board {
     int square;
     int turn;
     int ko;
-    CELL cells[19 * 19];
+    CELL cells[MAX_BOARD * MAX_BOARD];
     // scoring params
     int white_score;
     int black_score;

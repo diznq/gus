@@ -39,7 +39,7 @@ static void int_vec_dec_ref(INT_VEC *vec) {
 
 void board_init(BOARD* board, int size, int komi) {
     int n, sq;
-    if(size > 19) size = 19;
+    if(size > MAX_BOARD) size = MAX_BOARD;
     if(size < 0) size = 0;
     board->parent = NULL;
     board->size = size;

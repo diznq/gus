@@ -181,6 +181,9 @@ int on_load(lua_State *L, struct serve_params *params, int reload) {
 #else
     luaopen_gus(L);
 #endif
+
+    lua_pushinteger(L, MAX_BOARD);
+    lua_setglobal(L, "MAX_BOARD");
 }
 
 int on_unload(lua_State *L, struct serve_params *params, int reload) {
