@@ -3,8 +3,7 @@
 }
 
 .board {
-    border: 1px solid black;
-    background-color: lightyellow;
+    background-image: linear-gradient(to right top, #fff6a6, #f4e692, #e9d57e, #dec56a, #d4b557);
     display: inline-flex;
     flex-direction: column;
 }
@@ -15,32 +14,56 @@
 }
 
 .cell {
-    border: 1px solid #404040;
     width: 50px;
     height: 50px;
     display: flex;
     align-items: center;
     justify-content: center;
-    cursor: pointer
+    cursor: pointer;
+    background-image: 
 }
 
-.highlighted {
+.cell.white .body, .cell.black .body {
+    width: 40px;
+    height: 40px;
+    border-radius: 25px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 2;
+}
+
+.highlighted .body {
     outline: double;
-    outline-color: red;
-    outline-width: 2px;
+    outline-color: orange;
+    outline-width: 3px;
 }
 
-.cell.empty {
+/*
+<svg width="100" height="100" xmlns="http://www.w3.org/2000/svg">
+  <rect width="2" height="100" x="49" y="0" fill="red"/>
+  <rect width="100" height="2" x="0" y="49" fill="red"/>
+</svg>
+*/
+
+.cell {
+    background-image: url("data:image/svg+xml,%3Csvg%20width%3D%22100%22%20height%3D%22100%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%0A%20%20%3Crect%20width%3D%222%22%20height%3D%22100%22%20x%3D%2249%22%20y%3D%220%22%20fill%3D%22red%22%2F%3E%0A%20%20%3Crect%20width%3D%22100%22%20height%3D%222%22%20x%3D%220%22%20y%3D%2249%22%20fill%3D%22red%22%2F%3E%0A%3C%2Fsvg%3E");
+    background-position: center;
+}
+
+.cell.empty .body {
     background-color: transparent;
 }
 
-.cell.white {
+.cell.white .body {
     background-color: white;
+    border: 1px solid black;
     color: black;
 }
 
-.cell.black {
+.cell.black .body {
     background-color: black;
+    border: 1px solid white;
     color: white;
 }
 

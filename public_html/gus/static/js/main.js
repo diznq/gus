@@ -34,7 +34,11 @@ class Game {
             row.className = "row";
             for(let x = 0; x < size; x++) {
                 const cell = document.createElement("div");
+                const inner = document.createElement("div");
                 cell.className = "cell";
+                inner.classList = "body";
+                cell.appendChild(inner);
+                cell.body = inner;
                 row.appendChild(cell);
                 cell.onclick = (event) => {
                     this.handleClick(cell, event, x, y)
@@ -101,7 +105,7 @@ class Game {
         for(let i = 0; i < groups.length; i++) {
             const group = groups[i]
             if(group == 0) {
-                this.cells[i].setAttribute("data-liberties", "-")
+                this.cells[i].setAttribute("data-liberties", "")
             } else {
                 liberties[group] = [... new Set(liberties[group])]
                 this.cells[i].setAttribute("data-liberties", liberties[group].length)
@@ -162,7 +166,7 @@ class Game {
                 if(i == response.y * this.size + response.x) {
                     this.cells[i].className += " highlighted";
                 }
-                this.cells[i].textContent = (this.cells[i].getAttribute("data-liberties") || "-");
+                this.cells[i].body.textContent = (this.cells[i].getAttribute("data-liberties") || "");
             }
 
             document.getElementById("ai_pass").className = "ai-pass";

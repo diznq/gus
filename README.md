@@ -30,3 +30,7 @@ LINK=dynamic i.gus/build.sh
 To run the environment, first run `source i.gus/env.sh` and then `bin/80s server/http.lua -c 1 -m bin/gus.so` to run the server locally.
 
 The game is accessible at [http://localhost:8080/gus/](http://localhost:8080/gus/) after
+
+### UI example
+
+![Example game](docs/gus.png)
