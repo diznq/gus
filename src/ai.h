@@ -35,13 +35,19 @@ typedef struct board {
     int square;
     int turn;
     int ko;
+    CELL cells[19 * 19];
+    // scoring params
     int white_score;
     int black_score;
     int white_liberties;
     int black_liberties;
     int white;
     int black;
-    CELL *cells;
+    int id;
+    double score;
+    double max;
+    struct board *parent;
+    struct board *best_child;
 } BOARD;
 
 typedef struct int_vec {
@@ -53,7 +59,6 @@ typedef struct int_vec {
 
 void *allocate(void *mem, size_t size);
 void board_init(BOARD *board, int size, int komi);
-void board_release(BOARD *board);
 int  board_place(BOARD *board, int x, int y, CELL_COLOR color);
 int  board_predict(BOARD* board, CELL_COLOR color, int *best_x, int *best_y);
 void board_print(BOARD *board);

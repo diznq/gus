@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <math.h>
 #include "ai.h"
 
 static void int_vec_init(INT_VEC *vec, int capacity) {
@@ -39,13 +40,15 @@ static void int_vec_dec_ref(INT_VEC *vec) {
 
 void board_init(BOARD* board, int size, int komi) {
     int n, sq;
+    if(size > 19) size = 19;
+    if(size < 0) size = 0;
+    board->parent = NULL;
     board->size = size;
     board->square = size * size;
     board->ko = -1;
     board->white_score = komi;
     board->black_score = 0;
     board->turn = BLACK;
-    board->cells = (CELL*)allocate(NULL, board->square * sizeof(CELL));
     for(n = 0; n < board->square; n++) {
         board->cells[n].color = EMPTY;
         board->cells[n].group = 0;
@@ -54,19 +57,17 @@ void board_init(BOARD* board, int size, int komi) {
 }
 
 void board_release(BOARD *board) {
-    if(board->cells) {
-        free(board->cells);
-        board->cells = NULL;
-    }
+
 }
 
 static void board_copy(BOARD* out, BOARD* board) {
     int n;
+    out->parent = board->parent;
+    out->best_child = board->best_child;
     out->size = board->size;
     out->square = board->square;
-    if(!out->cells) {
-        out->cells = (CELL*)allocate(NULL, sizeof(CELL) * board->square);
-    }
+    out->id = board->id;
+    out->score = board->score;
     out->white_score = board->white_score;
     out->black_score = board->black_score;
     out->black_liberties = board->black_liberties;
@@ -224,43 +225,96 @@ static double make_rating(BOARD *clone, CELL_COLOR color) {
     return rating;
 }
 
-int board_predict(BOARD* board, CELL_COLOR color, int *best_x, int *best_y) {
-    int best_move_found = 1, pass = 1, best_n = 0, n = 0, y, x, ok, my_liberties, op_liberties;
-    double best_move = make_rating(board, color) * (0.2 + uniform(0.5)), rating;
-    BOARD clone;
-    clone.cells = NULL;
-    for(y = 0; y < board->size; y++) {
-        for(x = 0; x < board->size; x++, n++) {
-            if(board->cells[n].color == EMPTY) {
-                board_copy(&clone, board);
-                ok = board_place(&clone, x, y, board->turn);
-                if(ok < 0) continue;
+static int rating_sort(const void *a, const void *b) {
+    const BOARD *A = (const BOARD*)a;
+    const BOARD *B = (const BOARD*)b;
+    return B->score - A->score;
+}
 
-                rating = make_rating(&clone, color);
-                
-                if(rating > best_move || best_move_found == 0) {
-                    best_move = rating;
-                    best_n = n;
-                    *best_x = x;
-                    *best_y = y;
-                    best_move_found = 1;
-                    pass = 0;
+int board_predict(BOARD* board, CELL_COLOR color, int *best_x, int *best_y) {
+    CELL_COLOR o_color = color;
+    int pick_rate = 3,
+        pass = 0,
+        y = 0,
+        x = 0,
+        n = 0,
+        m = 1,
+        d = 0,
+        ok = 0,
+        pivot = 0,
+        sector_start = 0,
+        sector_end = 1,
+        depth = 3;
+
+    double best_move = make_rating(board, color) * 0.3, rating;
+    int to_alloc = pow(pick_rate, depth) / (pick_rate - 1);
+
+    BOARD *boards = calloc(1 + pick_rate + pick_rate * pick_rate + pick_rate * pick_rate * pick_rate * pick_rate, sizeof(BOARD));
+    BOARD helper[board->square];
+    BOARD *sel;
+    int stops[10][2];
+    board_copy(boards, board);
+    boards->id = 0;
+    boards->parent = NULL;
+    boards->best_child = NULL;
+    boards->id = ERR_PASS;
+    boards->score = make_rating(boards, color);
+
+    stops[0][0] = 0; stops[0][1] = 1;
+    for(d=0; d < depth; d++) {
+        for(pivot = sector_start; pivot < sector_end; pivot++) {
+            n = 0;
+            for(y = 0; y < board->size; y++) {
+                for(x = 0; x < board->size; x++, n++) {
+                    board_copy(helper + n, boards + pivot);
+                    ok = board_place(helper + n, x, y, color);
+                    helper[n].parent = boards + pivot;
+                    helper[n].id = n;
+                    helper[n].best_child = NULL;
+                    if(ok >= 0) {
+                        helper[n].score = make_rating(helper + n, color);
+                    } else {
+                        helper[n].id = ERR_PASS;
+                        helper[n].score = -1000000.0;
+                    }
                 }
+            }
+            qsort(helper, n, sizeof(BOARD), rating_sort);
+            for(n = 0; n < pick_rate; n++, m++) {
+                board_copy(boards + m, helper + n);
+            }
+        }
+        sector_start = sector_end;
+        sector_end = m;
+        stops[d + 1][0] = sector_start;
+        stops[d + 1][1] = sector_end;
+        stops[d + 2][0] = -1;
+        color = color == BLACK ? WHITE : BLACK;
+    }
+
+    color = o_color;
+
+    for(d = depth; d > 0; d--) {
+        for(pivot = stops[d][0]; pivot < stops[d][1]; pivot++) {
+            sel = boards + pivot;
+            if(sel->parent->best_child == NULL || sel->score > sel->parent->best_child->score) {
+                sel->parent->best_child = sel;
             }
         }
     }
-    board_release(&clone);
 
-    if(pass) {
+    sel = boards[0].best_child;
+    
+    if(sel->id < 0) {
         *best_x = -1;
         *best_y = -1;
+        free(boards);
         return ERR_PASS;
     }
-    else if(best_move_found) {
-        return board_place(board, *best_x, *best_y, color);
-    } else {
-        return best_move;
-    }
+    *best_x = sel->id % board->size;
+    *best_y = sel->id / board->size;
+    free(boards);
+    return board_place(board, *best_x, *best_y, color);
 }
 
 void board_encode(BOARD *board, char *out, size_t size) {

@@ -128,7 +128,6 @@ static int l_gus_free(lua_State *L) {
         return luaL_error(L, "expecting 1 argument: board (lightuserdata)");
     }
     BOARD *board = (BOARD*)lua_touserdata(L, 1);
-    board_release(board);
     free(board);
     return 0;
 }
