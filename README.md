@@ -12,23 +12,18 @@ Prerequisites:
 **Example directory hierarchy initialization**
 
 ```sh
-# download, build and install Lua 5.4.4
-wget https://www.lua.org/ftp/lua-5.4.4.tar.gz
-tar -xf lua-5.4.4.tar.gz
-cd lua-5.4.4
-make install
-cd ../
+# install Lua shared libraries using OS package manager
 
-# download and build 80s web server
+# download and build 80s web server with dynamic linking
 git clone https://github.com/diznq/80s.git
 cd ./80s
-./build.sh
+LINK=dynamic ./build.sh
 
 # download master server source code to crymp/ directory
 git clone https://github.com/diznq/gus.git i.gus/
 
 # build the gus module
-i.gus/build.sh
+LINK=dynamic i.gus/build.sh
 ```
 
 ## Running
