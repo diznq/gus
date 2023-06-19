@@ -242,7 +242,7 @@ static double make_rating(BOARD *clone, CELL_COLOR color) {
     op_area = color != BLACK ? clone->black : clone->white;
     op_score = color != BLACK ? clone->black_score : clone->white_score;
     
-    rating = (my_score - op_score) * 1000.0 - op_lib * 100.0 + my_lib * 10.0 - op_area * 50.0 - my_area * 7.0;
+    rating = (my_score - op_score) * 4000.0 - op_lib * 500.0 + my_lib * 20.0 + op_area * 50.0 - my_area * 25.0;
     return rating;
 }
 
@@ -254,11 +254,12 @@ static int rating_sort(const void *a, const void *b) {
 
 int board_predict(BOARD* board, CELL_COLOR color, int *best_x, int *best_y) {
     CELL_COLOR o_color = color;
-    int pick_rates[] = {4, 3, 2, 1, 1, 1, 2, 3, 4},
+    int pick_rates[] = {4, 3, 2, 1, 1, 1, 2, 3, 1},
         y = 0,
         x = 0,
         n = 0,
         m = 1,
+        o = 0,
         d = 0,
         ok = 0,
         pivot = 0,
@@ -311,9 +312,13 @@ int board_predict(BOARD* board, CELL_COLOR color, int *best_x, int *best_y) {
                     }
                 }
             }
+            o = n;
             qsort(helper, n, sizeof(BOARD), rating_sort);
-            for(n = 0; n < pick_rates[d]; n++, m++) {
+            for(n = 0; n < (pick_rates[d] >> 1) + (pick_rates[d] & 1); n++, m++) {
                 board_copy(boards + m, helper + n);
+            }
+            for(n = 0; n < (pick_rates[d] >> 1); n++, m++) {
+                board_copy(boards + m, helper + o - n - 1);
             }
         }
         sector_start = sector_end;
