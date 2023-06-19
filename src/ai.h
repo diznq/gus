@@ -8,7 +8,7 @@ struct cell;
 struct board;
 struct int_vec;
 
-#define MAX_BOARD 13
+#define MAX_BOARD 19
 
 typedef enum go_err {
     NO_ERR = 0,

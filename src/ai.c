@@ -114,21 +114,25 @@ static void board_add_liberty(BOARD *board, INT_VEC *liberties, int x, int y) {
 }
 
 static void board_group_propagate(BOARD* board, INT_VEC *liberties, int x, int y, CELL_COLOR color, int group) {
-    if(x < 0 || y < 0 || x >= board->size || y >= board->size) return;
-    CELL *cell = &board->cells[y * board->size + x];
-    if(cell->color == color && cell->group == 0) {
-        cell->group = group;
-        cell->liberties = liberties;
-        int_vec_add_ref(liberties);
-        board_add_liberty(board, liberties, x + 1, y);
-        board_add_liberty(board, liberties, x - 1, y);
-        board_add_liberty(board, liberties, x, y - 1);
-        board_add_liberty(board, liberties, x, y + 1);
-        board_group_propagate(board, liberties, x + 1, y, color, group);
-        board_group_propagate(board, liberties, x - 1, y, color, group);
-        board_group_propagate(board, liberties, x, y - 1, color, group);
-        board_group_propagate(board, liberties, x, y + 1, color, group);
-        //printf("pos %d, %d belongs to group %d with %d liberties\n", x + 1, y + 1, group, liberties->size);
+    int stk[MAX_BOARD * MAX_BOARD + 5], sp = 0, size = board->size;
+    stk[sp] = y * size + x;
+    while(sp >= 0 && sp < board->square) {
+        y = stk[sp] / size;
+        x = stk[sp--] % size;
+        CELL *cell = &board->cells[y * size + x];
+        if(cell->color == color && cell->group == 0) {
+            cell->group = group;
+            cell->liberties = liberties;
+            int_vec_add_ref(liberties);
+            board_add_liberty(board, liberties, x + 1, y);
+            board_add_liberty(board, liberties, x - 1, y);
+            board_add_liberty(board, liberties, x, y - 1);
+            board_add_liberty(board, liberties, x, y + 1);
+            if(x + 1 < size) stk[++sp] = y * size + (x + 1);
+            if(x - 1 >= 0) stk[++sp] = y * size + (x - 1);
+            if(y + 1 < size) stk[++sp] = (y + 1) * size + x;
+            if(y - 1 >= 0) stk[++sp] = (y - 1) * size + x;
+        }
     }
 }
 
@@ -242,7 +246,7 @@ static double make_rating(BOARD *clone, CELL_COLOR color) {
     op_area = color != BLACK ? clone->black : clone->white;
     op_score = color != BLACK ? clone->black_score : clone->white_score;
     
-    rating = (my_score - op_score) * 4000.0 - op_lib * 500.0 + my_lib * 20.0 + op_area * 50.0 - my_area * 25.0;
+    rating = (my_score - op_score) * 4000.0 - op_lib * 500.0 + my_lib * 50.0 + op_area * 50.0 - my_area * 25.0;
     return rating;
 }
 
@@ -257,10 +261,11 @@ int board_predict(BOARD* board, CELL_COLOR color, int *best_x, int *best_y) {
     int pick_rates[] = {4, 3, 2, 2, 2, 2, 2, 3, 4},
         y = 0,
         x = 0,
-        n = 0,
-        m = 1,
-        o = 0,
-        p = 0,
+        n = 0, // board number
+        m = 1, // number of boards
+        o = 0, // number of boards tmp var
+        p = 0, // board id
+        r = 0, // selected pick rate
         d = 0,
         ok = 0,
         pivot = 0,
@@ -311,12 +316,16 @@ int board_predict(BOARD* board, CELL_COLOR color, int *best_x, int *best_y) {
                 }
             }
             o = n;
-            qsort(helper, n, sizeof(BOARD), rating_sort);
-            for(n = 0; n < (pick_rates[d] >> 1) + (pick_rates[d] & 1); n++, m++) {
-                board_copy(boards + m, helper + n);
+            if(n == 0) {
+                printf("prematurely closing search as no good moves were found %d / %d", d, depth);
+                depth = d;
+                break;
             }
-            for(n = 0; n < (pick_rates[d] >> 1); n++, m++) {
-                board_copy(boards + m, helper + o - n - 1);
+            r = pick_rates[d];
+            if(r > n) r = n;
+            qsort(helper, n, sizeof(BOARD), rating_sort);
+            for(n = 0; n < r; n++, m++) {
+                board_copy(boards + m, helper + n);
             }
         }
         sector_start = sector_end;
@@ -341,8 +350,6 @@ int board_predict(BOARD* board, CELL_COLOR color, int *best_x, int *best_y) {
 
     sel = boards[0].best_child;
 
-    //printf("no move score: %f, move score: %f\n", pass, sel->score);
-    
     if(sel->id < 0/*|| sel->score < pass * 0.5*/) {
         *best_x = -1;
         *best_y = -1;

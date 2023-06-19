@@ -67,6 +67,15 @@ class Game {
         this.refreshState(x, y, this.turn);
     }
 
+    /**
+     * Propagate group ID to neighouring cells of same color
+     * @param {{[Number]: Number}} groups group lookup table
+     * @param {{[Number]: Array<Number>}} liberties liberties lookup table
+     * @param {Number} x current cell X
+     * @param {Number} y current cell Y
+     * @param {Number} group current group ID
+     * @param {Number} color current color
+     */
     propagate(groups, liberties, x, y, group, color) {
         const state = this.$(x, y)
         if(state == color && groups[y * this.size + x] == 0) {
@@ -81,6 +90,10 @@ class Game {
         }
     }
 
+    /**
+     * Refresh liberties on current state
+     * @returns number of stones to be removed
+     */
     refreshLiberties() {
         let groups = []
         let liberties = {}
@@ -118,6 +131,12 @@ class Game {
         return removed;
     }
 
+    /**
+     * Get list of surrounding liberties for cell (stone) inside group at given position
+     * @param {Number} x current cell X
+     * @param {Number} y current cell Y
+     * @returns 
+     */
     getLiberties(x, y) {
         let liberties = []
         const check = [ [x - 1, y], [x + 1, y], [x, y - 1], [x, y + 1] ]
@@ -133,6 +152,11 @@ class Game {
         return liberties;
     }
 
+    /**
+     * Refresh game state
+     * @param {Number} x move to be performed 
+     * @param {Number} y move to be performed
+     */
     refreshState(x, y) {
         const xhr = new XMLHttpRequest();
         xhr.onload = () => {
