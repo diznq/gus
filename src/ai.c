@@ -260,6 +260,7 @@ int board_predict(BOARD* board, CELL_COLOR color, int *best_x, int *best_y) {
         n = 0,
         m = 1,
         o = 0,
+        p = 0,
         d = 0,
         ok = 0,
         pivot = 0,
@@ -297,19 +298,16 @@ int board_predict(BOARD* board, CELL_COLOR color, int *best_x, int *best_y) {
     for(d=0; d < depth; d++) {
         for(pivot = sector_start; pivot < sector_end; pivot++) {
             n = 0;
-            for(y = 0; y < board->size; y++) {
-                for(x = 0; x < board->size; x++, n++) {
+            for(y = 0, p = 0; y < board->size; y++) {
+                for(x = 0; x < board->size; x++, p++) {
                     board_copy(helper + n, boards + pivot);
                     ok = board_place(helper + n, x, y, color);
+                    if(ok < 0) continue;
                     helper[n].parent = boards + pivot;
-                    helper[n].id = n;
+                    helper[n].id = p;
                     helper[n].best_child = NULL;
-                    if(ok >= 0) {
-                        helper[n].score = make_rating(helper + n, color);
-                    } else {
-                        helper[n].id = ERR_PASS;
-                        helper[n].score = -1000000.0;
-                    }
+                    helper[n].score = make_rating(helper + n, color);
+                    n++;
                 }
             }
             o = n;
