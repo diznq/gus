@@ -4,6 +4,8 @@
 #include <math.h>
 #include "ai.h"
 
+#define PASS_SPREAD 0.35
+
 static void int_vec_init(INT_VEC *vec, int capacity, int *mem) {
     vec->capacity = capacity;
     vec->size = 0;
@@ -246,7 +248,7 @@ static double make_rating(BOARD *clone, CELL_COLOR color) {
     op_area = color != BLACK ? clone->black : clone->white;
     op_score = color != BLACK ? clone->black_score : clone->white_score;
     
-    rating = (my_score - op_score) * 4000.0 - op_lib * 500.0 + my_lib * 50.0 + op_area * 50.0 - my_area * 25.0;
+    rating = (my_score - op_score) * 4000.0 - op_lib * 500.0 + my_lib * 50.0 + op_area * 50.0 - my_area * 50.0;
     return rating;
 }
 
@@ -298,6 +300,8 @@ int board_predict(BOARD* board, CELL_COLOR color, int *best_x, int *best_y) {
     boards->id = ERR_PASS;
     boards->score = make_rating(boards, color);
     pass = boards->score;
+    if(pass > 0.0) pass = (1.0 - PASS_SPREAD) * pass;
+    else pass = (1.0 + PASS_SPREAD) * pass;
 
     stops[0][0] = 0; stops[0][1] = 1;
     for(d=0; d < depth; d++) {
@@ -318,7 +322,7 @@ int board_predict(BOARD* board, CELL_COLOR color, int *best_x, int *best_y) {
             o = n;
             if(n == 0) {
                 printf("prematurely closing search as no good moves were found %d / %d\n", d + 1, depth);
-                depth = d;
+                depth = d - 1;
                 break;
             }
             r = pick_rates[d];
@@ -349,10 +353,9 @@ int board_predict(BOARD* board, CELL_COLOR color, int *best_x, int *best_y) {
     }
 
     sel = boards[0].best_child;
+    printf("score: %f, pass: %f\n", sel ? sel->score : 0, pass);
 
-    if(pass < 1.0 && pass > -1.0) pass = pass > 0 ? 1.0 : -1.0;
-    //printf("ratio: %f\n", sel->score / pass);
-    if(sel == NULL || sel->id < 0 || sel->score / pass < 0.8) {
+    if(sel == NULL || sel->id < 0 || sel->score < pass || depth % 2 == 0) {
         *best_x = -1;
         *best_y = -1;
         free(boards);
