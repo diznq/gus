@@ -317,7 +317,7 @@ int board_predict(BOARD* board, CELL_COLOR color, int *best_x, int *best_y) {
             }
             o = n;
             if(n == 0) {
-                printf("prematurely closing search as no good moves were found %d / %d", d, depth);
+                printf("prematurely closing search as no good moves were found %d / %d\n", d + 1, depth);
                 depth = d;
                 break;
             }
@@ -350,7 +350,9 @@ int board_predict(BOARD* board, CELL_COLOR color, int *best_x, int *best_y) {
 
     sel = boards[0].best_child;
 
-    if(sel->id < 0/*|| sel->score < pass * 0.5*/) {
+    if(pass < 1.0 && pass > -1.0) pass = pass > 0 ? 1.0 : -1.0;
+    //printf("ratio: %f\n", sel->score / pass);
+    if(sel == NULL || sel->id < 0 || sel->score / pass < 0.8) {
         *best_x = -1;
         *best_y = -1;
         free(boards);

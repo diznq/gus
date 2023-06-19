@@ -8,7 +8,7 @@ struct cell;
 struct board;
 struct int_vec;
 
-#define MAX_BOARD 19
+#define MAX_BOARD 13
 
 typedef enum go_err {
     NO_ERR = 0,
@@ -27,25 +27,25 @@ typedef enum cell_color {
 
 typedef struct cell {
     CELL_COLOR color;
-    int group;
-    int n_liberties;
+    short group;
+    short n_liberties;
     struct int_vec* liberties;
 } CELL;
 
 typedef struct board {
-    int size;
-    int square;
-    int turn;
-    int ko;
+    char size;
+    short square;
+    char turn;
+    short ko;
     CELL cells[MAX_BOARD * MAX_BOARD];
     // scoring params
-    int white_score;
-    int black_score;
-    int white_liberties;
-    int black_liberties;
-    int white;
-    int black;
-    int id;
+    short white_score;
+    short black_score;
+    short white_liberties;
+    short black_liberties;
+    short white;
+    short black;
+    short id;
     double score;
     double max;
     struct board *parent;
