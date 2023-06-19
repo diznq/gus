@@ -254,7 +254,7 @@ static int rating_sort(const void *a, const void *b) {
 
 int board_predict(BOARD* board, CELL_COLOR color, int *best_x, int *best_y) {
     CELL_COLOR o_color = color;
-    int pick_rates[] = {4, 3, 2, 1, 1, 1, 2, 3, 1},
+    int pick_rates[] = {4, 3, 2, 2, 2, 2, 2, 3, 4},
         y = 0,
         x = 0,
         n = 0,
@@ -334,7 +334,7 @@ int board_predict(BOARD* board, CELL_COLOR color, int *best_x, int *best_y) {
     for(d = depth; d > 0; d--) {
         for(pivot = stops[d][0]; pivot < stops[d][1]; pivot++) {
             sel = boards + pivot;
-            if(sel->parent->best_child == NULL || sel->score > sel->parent->best_child->score) {
+            if(sel->parent->best_child == NULL || sel->score > sel->parent->score) {
                 sel->parent->best_child = sel;
                 sel->parent->score = sel->score;
             }
