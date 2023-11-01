@@ -43,6 +43,8 @@ typedef struct board {
     short black_score;
     short white_liberties;
     short black_liberties;
+    short white_groups;
+    short black_groups;
     short white;
     short black;
     short id;

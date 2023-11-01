@@ -7,6 +7,12 @@
 #include "../../src/80s.h"
 #endif
 
+#ifdef _WIN32
+#define LIB_EXPORT __declspec(dllexport)
+#else
+#define LIB_EXPORT
+#endif
+
 void *allocate(void *mem, size_t size) {
     if(size == 0) {
         free(mem);
@@ -174,7 +180,8 @@ static int luaopen_gus(lua_State *L) {
     return 1;
 }
 
-int on_load(lua_State *L, struct serve_params *params, int reload) {
+LIB_EXPORT int on_load(lua_State *L, serve_params *params, int reload) {
+    printf("gus loaded\n");
 #if LUA_VERSION_NUM > 501
     luaL_requiref(L, "gus", luaopen_gus, 1);
     lua_pop(L, 1);
@@ -186,7 +193,7 @@ int on_load(lua_State *L, struct serve_params *params, int reload) {
     lua_setglobal(L, "MAX_BOARD");
 }
 
-int on_unload(lua_State *L, struct serve_params *params, int reload) {
+LIB_EXPORT int on_unload(lua_State *L, serve_params *params, int reload) {
     // ...
 }
 #endif

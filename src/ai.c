@@ -91,6 +91,8 @@ static void board_copy(BOARD* out, BOARD* board) {
     out->black = board->black;
     out->white_score = board->white_score;
     out->black_score = board->black_score;
+    out->white_groups = board->white_groups;
+    out->black_groups = board->black_groups;
     out->black_liberties = board->black_liberties;
     out->white_liberties = board->white_liberties;
     out->ko = board->ko;
@@ -146,6 +148,8 @@ int board_refresh(BOARD *board, int place_x, int place_y, CELL_COLOR color, int 
 
     CELL *cell;
     // clean-up old state if there was any
+    board->white_groups = 0;
+    board->black_groups = 0;
     board->white_liberties = 0;
     board->black_liberties = 0;
     board->white = 0;
@@ -169,6 +173,8 @@ int board_refresh(BOARD *board, int place_x, int place_y, CELL_COLOR color, int 
                 continue;
             } else if(cell->color != EMPTY) {
                 id = group++;
+                if(cell->color == BLACK) board->black_groups++;
+                else board->white_groups++;
                 int_vec_init(liberties + id, MAX_BOARD * MAX_BOARD, liberties_arr[id]);
                 board_group_propagate(board, liberties + id, x, y, cell->color, id);
             } else {
@@ -239,16 +245,27 @@ static double uniform(double w) {
 }
 
 static double make_rating(BOARD *clone, CELL_COLOR color) {
-    double my_lib, my_area, my_score, op_lib, op_area, op_score, rating;
+    double my_lib, my_area, my_score, op_lib, op_area, op_score, rating, my_groups, op_groups;
     my_lib = color == BLACK ? clone->black_liberties : clone->white_liberties;
     my_area = color == BLACK ? clone->black : clone->white;
     my_score = color == BLACK ? clone->black_score : clone->white_score;
+    my_groups = color == BLACK ? clone->black_groups : clone->white_groups;
 
     op_lib = color != BLACK ? clone->black_liberties : clone->white_liberties;
     op_area = color != BLACK ? clone->black : clone->white;
     op_score = color != BLACK ? clone->black_score : clone->white_score;
+    op_groups = color != BLACK ? clone->black_groups : clone->white_groups;
+
+    if(my_groups < 0) my_groups = 1.0;
+    if(op_groups < 0) op_groups = 1.0;
     
-    rating = (my_score - op_score) * 4000.0 - op_lib * 500.0 + my_lib * 50.0 + op_area * 50.0 - my_area * 50.0;
+    rating = 
+         4000  * my_score
+        -4000  * op_score
+        + 400  * my_lib / my_groups
+        - 400  * op_lib / op_groups
+        - 100  * my_area * my_groups
+        + 100  * op_area * op_groups;
     return rating;
 }
 
