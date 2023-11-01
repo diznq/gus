@@ -261,11 +261,11 @@ static double make_rating(BOARD *clone, CELL_COLOR color) {
     
     rating = 
          4000  * my_score
-        -4000  * op_score
-        + 400  * my_lib / my_groups
-        - 400  * op_lib / op_groups
-        - 100  * my_area * my_groups
-        + 100  * op_area * op_groups;
+        -5000  * op_score
+        + 500  * my_lib / my_groups
+        - 400  * op_lib
+        -  50  * my_area
+        + 100  * op_area;
     return rating;
 }
 
