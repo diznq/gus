@@ -63,6 +63,7 @@ typedef struct int_vec {
 } INT_VEC;
 
 void *allocate(void *mem, size_t size);
+void ai_init();
 void board_init(BOARD *board, int size, int komi);
 int  board_refresh(BOARD *board, int place_x, int place_y, CELL_COLOR color, int update);
 int  board_place(BOARD *board, int x, int y, CELL_COLOR color);

@@ -181,7 +181,7 @@ static int luaopen_gus(lua_State *L) {
 }
 
 LIB_EXPORT int on_load(lua_State *L, serve_params *params, int reload) {
-    printf("gus loaded\n");
+    ai_init();
 #if LUA_VERSION_NUM > 501
     luaL_requiref(L, "gus", luaopen_gus, 1);
     lua_pop(L, 1);

@@ -6,6 +6,8 @@
 
 #define PASS_SPREAD 0.35
 
+static double logs[4000];
+
 static void int_vec_init(INT_VEC *vec, int capacity, int *mem) {
     vec->capacity = capacity;
     vec->size = 0;
@@ -245,7 +247,8 @@ static double uniform(double w) {
 }
 
 static double make_rating(BOARD *clone, CELL_COLOR color) {
-    double my_lib, my_area, my_score, op_lib, op_area, op_score, rating, my_groups, op_groups;
+    double my_lib, my_area, my_score, op_lib, op_area, op_score, rating;
+    int my_groups, op_groups;
     my_lib = color == BLACK ? clone->black_liberties : clone->white_liberties;
     my_area = color == BLACK ? clone->black : clone->white;
     my_score = color == BLACK ? clone->black_score : clone->white_score;
@@ -262,9 +265,9 @@ static double make_rating(BOARD *clone, CELL_COLOR color) {
     rating = 
          4000  * my_score
         -5000  * op_score
-        + 500  * my_lib / my_groups
+        + 500  * my_lib / (logs[my_groups + 1])
         - 400  * op_lib
-        -  50  * my_area
+        - 300  * my_area
         + 100  * op_area;
     return rating;
 }
@@ -454,4 +457,10 @@ void board_print(BOARD *board) {
     }
     *p = 0;
     printf("%s", picture);
+}
+
+void ai_init() {
+    for(int i=0; i<4000; i++) {
+        logs[i] = log((double)i);
+    }
 }
