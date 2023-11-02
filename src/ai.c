@@ -4,9 +4,11 @@
 #include <math.h>
 #include "ai.h"
 
-#define PASS_SPREAD 0.35
+#define PASS_SPREAD 0.05
+#define PASS_SPREAD_BIG 0.3
 
 static double logs[4000];
+static double group_bonus[4000];
 
 static void int_vec_init(INT_VEC *vec, int capacity, int *mem) {
     vec->capacity = capacity;
@@ -259,16 +261,18 @@ static double make_rating(BOARD *clone, CELL_COLOR color) {
     op_score = color != BLACK ? clone->black_score : clone->white_score;
     op_groups = color != BLACK ? clone->black_groups : clone->white_groups;
 
-    if(my_groups < 0) my_groups = 1.0;
-    if(op_groups < 0) op_groups = 1.0;
+    if(my_groups <= 1) my_groups = 1;
+    if(op_groups <= 1) op_groups = 1;
     
     rating = 
-         4000  * my_score
-        -5000  * op_score
-        + 500  * my_lib / (logs[my_groups + 1])
-        - 400  * op_lib
-        - 300  * my_area
-        + 100  * op_area;
+         6000   * my_score
+        -4000   * op_score
+        + 300  * (my_lib / logs[my_groups + 1])
+        - 300  * (op_lib / logs[op_groups + 1])
+        - 25  * my_area
+        + 25  * op_area
+        + group_bonus[my_groups]
+        - group_bonus[op_groups];
     return rating;
 }
 
@@ -278,9 +282,13 @@ static int rating_sort(const void *a, const void *b) {
     return B->score - A->score;
 }
 
+static double rnd() {
+    return ((double)rand()) / RAND_MAX;
+}
+
 int board_predict(BOARD* board, CELL_COLOR color, int *best_x, int *best_y) {
     CELL_COLOR o_color = color;
-    int pick_rates[] = {4, 3, 2, 2, 2, 2, 2, 3, 4},
+    int pick_rates[] = {5, 2, 5, 2, 5},
         y = 0,
         x = 0,
         n = 0, // board number
@@ -296,9 +304,10 @@ int board_predict(BOARD* board, CELL_COLOR color, int *best_x, int *best_y) {
         to_alloc = 1,
         last_pow; 
     int depth = sizeof(pick_rates) / sizeof(pick_rates[0]);
+    int premature = 0;
     int sizes[50];
     int stops[50][2];
-    double pass = 0.0;
+    double pass = 0.0, pass_big = 0.0;
 
     sizes[0] = 1;
     last_pow = pick_rates[0];
@@ -320,8 +329,11 @@ int board_predict(BOARD* board, CELL_COLOR color, int *best_x, int *best_y) {
     boards->id = ERR_PASS;
     boards->score = make_rating(boards, color);
     pass = boards->score;
+    pass_big = boards->score;
     if(pass > 0.0) pass = (1.0 - PASS_SPREAD) * pass;
     else pass = (1.0 + PASS_SPREAD) * pass;
+    if(pass_big > 0.0) pass_big = (1.0 - PASS_SPREAD_BIG) * pass;
+    else pass_big = (1.0 + PASS_SPREAD_BIG) * pass_big;
 
     stops[0][0] = 0; stops[0][1] = 1;
     for(d=0; d < depth; d++) {
@@ -335,14 +347,16 @@ int board_predict(BOARD* board, CELL_COLOR color, int *best_x, int *best_y) {
                     helper[n].parent = boards + pivot;
                     helper[n].id = p;
                     helper[n].best_child = NULL;
-                    helper[n].score = make_rating(helper + n, color);
+                    helper[n].score = make_rating(helper + n, color); // + 1000.0 * (0.9 + rnd() * 0.2);
                     n++;
                 }
             }
             o = n;
             if(n == 0) {
                 printf("prematurely closing search as no good moves were found %d / %d\n", d + 1, depth);
+                premature = 1;
                 depth = d - 1;
+                if(depth % 2 == 0) depth--;
                 break;
             }
             r = pick_rates[d];
@@ -373,9 +387,16 @@ int board_predict(BOARD* board, CELL_COLOR color, int *best_x, int *best_y) {
     }
 
     sel = boards[0].best_child;
-    printf("score: %f, pass: %f\n", sel ? sel->score : 0, pass);
+    //printf("best move: %d, %d\n", sel->id % sel->size, sel->id / sel->size);
+    printf("score: %f, pass: %f, premature: %d\n", sel ? sel->score : 0, pass, premature);
 
-    if(sel == NULL || sel->id < 0 || sel->score < pass || depth % 2 == 0) {
+    if( 
+        sel == NULL 
+        || sel->id < 0 
+        || (!premature && sel->score < pass) 
+        || ( premature && sel->score < pass_big /*&& d % 2 == 0*/)
+        //|| ( premature && sel->score < pass && d % 2 == 1)
+    ) {
         *best_x = -1;
         *best_y = -1;
         free(boards);
@@ -384,6 +405,7 @@ int board_predict(BOARD* board, CELL_COLOR color, int *best_x, int *best_y) {
     *best_x = sel->id % board->size;
     *best_y = sel->id / board->size;
     free(boards);
+    printf("blk: %d, wht: %d\n", board->black_groups, board->white_groups);
     return board_place(board, *best_x, *best_y, color);
 }
 
@@ -460,7 +482,16 @@ void board_print(BOARD *board) {
 }
 
 void ai_init() {
-    for(int i=0; i<4000; i++) {
-        logs[i] = log((double)i);
+    int i;
+    logs[0] = 1.0;
+    group_bonus[0] = 0;
+    group_bonus[1] = 500;
+    group_bonus[2] = 1000;
+    group_bonus[3] = 1500;
+    group_bonus[4] = 1000;
+    group_bonus[5] = 500;
+    for(i=6; i<4000; i++) group_bonus[i] = -i * 250;
+    for(i=1; i<4000; i++) {
+        logs[i] = log((double)i) / log(2.0);
     }
 }
